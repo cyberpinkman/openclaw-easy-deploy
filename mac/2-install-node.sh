@@ -74,8 +74,8 @@ install_via_homebrew() {
     print_info "正在更新 Homebrew..."
     brew update
 
-    print_info "正在安装 Node.js 24..."
-    brew install node@24
+    print_info "正在安装 Node.js..."
+    brew install node
 
     if [ $? -eq 0 ]; then
         print_ok "Node.js 安装成功"

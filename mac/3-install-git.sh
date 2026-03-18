@@ -5,7 +5,7 @@
 # 安装 Git 并配置 GitHub 镜像源（中国用户）
 # ============================================
 
-set -e
+# 不使用 set -e，避免非关键错误导致脚本退出
 
 # 颜色定义
 RED='\033[0;31m'
@@ -14,13 +14,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 镜像源列表
-declare -A GIT_MIRRORS
-GIT_MIRRORS["1"]="https://gitclone.com"
-GIT_MIRRORS["2"]="https://hub.fastgit.xyz"
-GIT_MIRRORS["3"]="https://mirror.ghproxy.com"
-GIT_MIRRORS["4"]="https://ghproxy.net"
-GIT_MIRRORS["5"]="https://gh-proxy.com"
+# macOS 兼容的 timeout 函数
+run_with_timeout() {
+    local timeout_sec=$1
+    shift
+    local cmd="$@"
+    perl -e 'alarm shift; exec @ARGV' "$timeout_sec" $cmd 2>/dev/null
+}
+
+# 镜像源列表（兼容 bash 3.2，不使用关联数组）
+MIRROR_URLS=(
+    "https://gitclone.com"
+    "https://hub.fastgit.xyz"
+    "https://mirror.ghproxy.com"
+    "https://ghproxy.net"
+    "https://gh-proxy.com"
+)
 
 MIRROR_NAMES=(
     "gitclone.com"
@@ -91,7 +100,7 @@ check_proxy() {
 test_github_connection() {
     print_step "测试 GitHub 连接"
 
-    if timeout 15 git ls-remote https://github.com 2>/dev/null; then
+    if run_with_timeout 15 git ls-remote https://github.com 2>/dev/null; then
         print_ok "可以连接 GitHub"
         return 0
     else
@@ -147,7 +156,7 @@ configure_git_mirror() {
 
     # 测试配置
     print_info "测试镜像连接..."
-    if timeout 15 git ls-remote https://github.com 2>/dev/null; then
+    if run_with_timeout 15 git ls-remote https://github.com 2>/dev/null; then
         print_ok "镜像配置成功"
         return 0
     else
@@ -188,7 +197,8 @@ select_mirror() {
 
     case $choice in
         1|2|3|4|5)
-            local mirror_url="${GIT_MIRRORS[$choice]}"
+            local idx=$((choice-1))
+            local mirror_url="${MIRROR_URLS[$idx]}"
             configure_git_mirror "$mirror_url"
             ;;
         6)

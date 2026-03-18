@@ -5,7 +5,7 @@
 # 检测电脑配置和已安装软件
 # ============================================
 
-set -e
+# 不使用 set -e，让脚本完整运行完所有检测
 
 # 颜色定义
 RED='\033[0;31m'
@@ -13,6 +13,16 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# macOS 兼容的 timeout 函数
+run_with_timeout() {
+    local timeout_sec=$1
+    shift
+    local cmd="$@"
+
+    # 使用 perl 实现 timeout（macOS 自带 perl）
+    perl -e 'alarm shift; exec @ARGV' "$timeout_sec" $cmd 2>/dev/null
+}
 
 # 打印函数
 print_header() {
@@ -51,7 +61,6 @@ check_system() {
     print_info "macOS 版本: $os_version"
 
     # 芯片类型
-    local chip=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "Unknown")
     if [[ $(uname -m) == "arm64" ]]; then
         print_info "芯片: Apple Silicon (ARM64)"
     else
@@ -71,7 +80,6 @@ check_hardware() {
 
     if [ $mem_gb -lt 4 ]; then
         print_error "内存过低 (低于 4GB)，建议更换设备"
-        return 1
     elif [ $mem_gb -lt 8 ]; then
         print_warn "内存较低 (4-8GB)，可以运行但可能卡顿"
     else
@@ -84,7 +92,6 @@ check_hardware() {
 
     if [ $free_space -lt 2 ]; then
         print_error "硬盘空间不足 (低于 2GB)，请清理磁盘"
-        return 1
     elif [ $free_space -lt 5 ]; then
         print_warn "硬盘空间较少 (2-5GB)，建议清理"
     else
@@ -109,7 +116,6 @@ check_node() {
         else
             print_warn "版本过低 (低于 22)，需要升级"
             print_info "请运行 2-install-node.sh 安装新版本"
-            return 1
         fi
 
         # 检查 npm
@@ -118,7 +124,6 @@ check_node() {
     else
         print_warn "未安装 Node.js"
         print_info "请运行 2-install-node.sh 进行安装"
-        return 1
     fi
 }
 
@@ -133,7 +138,7 @@ check_git() {
 
         # 检测是否能连接 GitHub
         print_info "检测 GitHub 连接..."
-        if timeout 10 git ls-remote https://github.com &> /dev/null; then
+        if run_with_timeout 10 git ls-remote https://github.com &> /dev/null; then
             print_ok "可以连接 GitHub"
         else
             print_warn "无法连接 GitHub，可能需要配置镜像或使用代理"
@@ -142,7 +147,6 @@ check_git() {
     else
         print_warn "未安装 Git"
         print_info "请运行 3-install-git.sh 进行安装"
-        return 1
     fi
 }
 
@@ -157,7 +161,7 @@ check_openclaw() {
 
         # 检测网关状态
         print_info "检测网关状态..."
-        if curl -s http://127.0.0.1:18789/health &> /dev/null; then
+        if curl -s --max-time 5 http://127.0.0.1:18789/health &> /dev/null; then
             print_ok "网关运行正常"
         else
             print_warn "网关未运行"
@@ -168,7 +172,6 @@ check_openclaw() {
         print_warn "未安装小龙虾"
         print_info "请先完成 Node.js 和 Git 的安装"
         print_info "然后运行 4-install-openclaw.sh 进行安装"
-        return 1
     fi
 }
 
@@ -192,7 +195,7 @@ generate_recommendation() {
     # 检查是否需要安装/配置 Git
     if ! command -v git &> /dev/null; then
         echo "  2️⃣  运行 3-install-git.sh 安装 Git"
-    elif ! timeout 10 git ls-remote https://github.com &> /dev/null; then
+    elif ! run_with_timeout 10 git ls-remote https://github.com &> /dev/null; then
         echo "  2️⃣  运行 3-install-git.sh 配置镜像源"
     else
         echo "  ✅ Git 已就绪，跳过步骤 3"

@@ -5,7 +5,7 @@
 # 安装 OpenClaw Agent
 # ============================================
 
-set -e
+# 不使用 set -e，避免非关键错误中断安装
 
 # 颜色定义
 RED='\033[0;31m'
@@ -14,12 +14,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# npm 源列表
-declare -A NPM_REGISTRIES
-NPM_REGISTRIES["1"]="https://registry.npmmirror.com"
-NPM_REGISTRIES["2"]="https://mirrors.cloud.tencent.com/npm/"
-NPM_REGISTRIES["3"]="https://registry.npmmirror.com"
-NPM_REGISTRIES["4"]="https://registry.npmjs.org"
+# npm 源列表（兼容 bash 3.2，使用普通数组）
+NPM_URLS=(
+    "https://registry.npmmirror.com"
+    "https://mirrors.cloud.tencent.com/npm/"
+    "https://repo.huaweicloud.com/repository/npm/"
+    "https://registry.npmjs.org"
+)
 
 NPM_NAMES=(
     "淘宝源 (npmmirror.com) - 推荐"
@@ -101,11 +102,13 @@ select_npm_registry() {
     print_info "当前源: $current_registry"
     echo ""
 
-    echo -e "${YELLOW}请选择 npm 源：${NC}"
+    echo -e "${YELLOW}请选择 npm 源${NC}"
     echo ""
 
-    for i in "${!NPM_NAMES[@]}"; do
+    local i=0
+    while [ $i -lt ${#NPM_NAMES[@]} ]; do
         echo "  $((i+1))) ${NPM_NAMES[$i]}"
+        i=$((i+1))
     done
 
     echo "  5) 保持当前设置"
@@ -115,7 +118,8 @@ select_npm_registry() {
 
     case $choice in
         1|2|3|4)
-            local registry="${NPM_REGISTRIES[$choice]}"
+            local idx=$((choice-1))
+            local registry="${NPM_URLS[$idx]}"
             npm config set registry "$registry"
             print_ok "已切换到: $registry"
             ;;
@@ -123,7 +127,7 @@ select_npm_registry() {
             print_ok "保持当前源: $current_registry"
             ;;
         *)
-            print_error "无效选项，使用当前源"
+            print_error "无效选项"
             ;;
     esac
 }
