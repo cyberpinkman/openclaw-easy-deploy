@@ -37,8 +37,14 @@
 1. 打开「终端」
 2. 执行以下命令下载并运行自检脚本：
 
+**方式一：GitHub（有代理/VPN 用户）**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/1-check.sh | bash
+```
+
+**方式二：Gitee（无代理用户，推荐）**
+```bash
+curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/1-check.sh | bash
 ```
 
 3. 根据提示逐步执行后续脚本
@@ -48,9 +54,16 @@ curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/m
 1. 以管理员身份打开「PowerShell」
 2. 执行以下命令：
 
+**方式一：GitHub（有代理/VPN 用户）**
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/1-check.ps1 | iex
+```
+
+**方式二：Gitee（无代理用户，推荐）**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/1-check.ps1 | iex
 ```
 
 3. 根据提示逐步执行后续脚本
