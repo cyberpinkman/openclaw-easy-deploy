@@ -32,15 +32,18 @@ curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/m
 
 **方式一：Gitee（国内推荐）**
 ```powershell
-iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 | iex
+iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex
 ```
 
 **方式二：GitHub（有代理用户）**
 ```powershell
-iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
 ```
 
-> 💡 提示：如果中文版显示乱码，请使用上述英文版脚本，功能完全相同。
+> 💡 提示：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
+> ```powershell
+> iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 | iex
+> ```
 
 ---
 
