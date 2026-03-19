@@ -240,9 +240,3 @@ function Main {
 
 # 运行
 Main
-�行 3-install-git.ps1 安装/配置 Git" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-# 运行
-Main

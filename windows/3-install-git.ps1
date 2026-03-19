@@ -295,5 +295,3 @@ function Main {
 
 # 运行
 Main
-�行
-Main
