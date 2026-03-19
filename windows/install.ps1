@@ -111,10 +111,12 @@ function Read-NumberChoice {
     $attempt = 1
 
     while ($attempt -le $maxAttempts) {
+        # 直接使用 Read-Host，不通过子 shell
         $choice = Read-Host $Prompt
 
         # 空输入，使用默认值
         if ([string]::IsNullOrWhiteSpace($choice)) {
+            Write-Info "使用默认选项: $Default"
             return $Default
         }
 
@@ -137,8 +139,8 @@ function Read-NumberChoice {
         $attempt++
     }
 
-    # 超过重试次数，使用默认值
-    Write-Warn "已达到最大尝试次数，使用默认选项"
+    # 超过重试次数，使用默认值并继续
+    Write-Warn "已达到最大尝试次数，使用默认选项: $Default"
     return $Default
 }
 

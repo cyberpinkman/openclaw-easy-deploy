@@ -159,23 +159,6 @@ ask_yes_no() {
     esac
 }
 
-# 读取用户选择（兼容管道运行），自动去除空白字符
-read_choice() {
-    local prompt="$1"
-    local answer
-
-    if [ -t 0 ]; then
-        read -p "$prompt" answer
-    else
-        echo "$prompt" >&2  # 输出到 stderr，不被 $() 捕获
-        read answer < /dev/tty
-    fi
-
-    # 去除前后空白字符
-    answer=$(echo "$answer" | tr -d '[:space:]')
-    echo "$answer"
-}
-
 # 读取数字选项（带验证和重试）
 read_number_choice() {
     local prompt="$1"
@@ -184,12 +167,22 @@ read_number_choice() {
     local default="$4"
     local max_attempts=5
     local attempt=1
+    local choice
 
     while [ $attempt -le $max_attempts ]; do
-        local choice=$(read_choice "$prompt")
+        # 直接读取，不通过子 shell
+        if [ -t 0 ]; then
+            read -p "$prompt" choice
+        else
+            echo "$prompt" >&2
+            read choice < /dev/tty
+        fi
+
+        # 去除前后空白字符
+        choice=$(echo "$choice" | tr -d '[:space:]')
 
         # 空输入，使用默认值
-        if [ -z "$choice" ] && [ -n "$default" ]; then
+        if [ -z "$choice" ]; then
             echo "$default"
             return 0
         fi
@@ -210,10 +203,10 @@ read_number_choice() {
         attempt=$((attempt + 1))
     done
 
-    # 超过重试次数，使用默认值或第一个选项
-    print_warn "已达到最大尝试次数，使用默认选项"
-    echo "${default:-1}"
-    return 1
+    # 超过重试次数，使用默认值
+    print_warn "已达到最大尝试次数，使用默认选项: $default"
+    echo "$default"
+    return 0
 }
 
 # 检测系统环境
