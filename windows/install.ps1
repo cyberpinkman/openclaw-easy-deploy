@@ -5,6 +5,17 @@
 
 $ErrorActionPreference = "Continue"
 
+# 设置控制台编码为 UTF-8（解决中文乱码）
+# 方法1: 设置 .NET 编码
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::InputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+
+# 方法2: 设置代码页（某些旧版 Windows 需要）
+try {
+    $null = cmd /c "chcp 65001 >nul 2>&1"
+} catch {}
+
 # 脚本版本
 $ScriptVersion = "1.0.0"
 
