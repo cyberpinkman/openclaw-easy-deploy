@@ -43,18 +43,21 @@ function Get-CurrentNodeVersion {
 
 # 使用 winget 安装
 function Install-ViaWinget {
-    Write-ColorOutput "使用 winget 安装 Node.js" -Type Step
+    Write-ColorOutput "使用 winget 安装 Node.js 24" -Type Step
 
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if (-not $wingetCmd) {
         Write-ColorOutput "winget 未安装" -Type Warn
+        Write-ColorOutput "winget 需要 Windows 10 21H2 或 Windows 11" -Type Info
+        Write-ColorOutput "请选择其他安装方式" -Type Info
         return $false
     }
 
-    Write-ColorOutput "正在安装 Node.js 24..." -Type Info
+    Write-ColorOutput "正在安装 Node.js 24 (Current 版本)..." -Type Info
 
     try {
-        winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        # 使用 OpenJS.NodeJS (Current 24.x) 而非 LTS (22.x)
+        winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements
         Write-ColorOutput "Node.js 安装成功" -Type OK
         return $true
     } catch {
@@ -237,7 +240,7 @@ function Main {
 
 # 运行
 Main
-�行 3-install-git.ps1 安装/配置 Git" -ForegroundColor Yellow
+�行 3-install-git.ps1 安装/配置 Git" -ForegroundColor Yellow
     Write-Host ""
 }
 

@@ -5,21 +5,17 @@
 
 $ErrorActionPreference = "Continue"
 
-# 镜像源列表
+# 镜像源列表（注意：hub.fastgit.xyz 已停服，已移除）
 $GitMirrors = @{
     "1" = "https://gitclone.com"
-    "2" = "https://hub.fastgit.xyz"
-    "3" = "https://mirror.ghproxy.com"
-    "4" = "https://ghproxy.net"
-    "5" = "https://gh-proxy.com"
+    "2" = "https://mirror.ghproxy.com"
+    "3" = "https://ghproxy.net"
 }
 
 $MirrorNames = @(
     "gitclone.com",
-    "hub.fastgit.xyz",
     "mirror.ghproxy.com",
-    "ghproxy.net",
-    "gh-proxy.com"
+    "ghproxy.net"
 )
 
 # 颜色函数
@@ -138,9 +134,8 @@ function Set-GitMirror {
 
     Write-ColorOutput "配置 Git 镜像源: $MirrorUrl" -Type Step
 
-    # 配置 URL 重写规则
+    # 配置 URL 重写规则（仅 HTTPS，镜像站通常不支持 SSH）
     git config --global url."$MirrorUrl/github.com/".insteadOf "https://github.com/"
-    git config --global url."$MirrorUrl/github.com/".insteadOf "git@github.com:"
 
     # 测试配置
     Write-ColorOutput "测试镜像连接..." -Type Info
@@ -163,10 +158,8 @@ function Clear-MirrorConfig {
 
     $mirrors = @(
         "https://gitclone.com",
-        "https://hub.fastgit.xyz",
         "https://mirror.ghproxy.com",
-        "https://ghproxy.net",
-        "https://gh-proxy.com"
+        "https://ghproxy.net"
     )
 
     foreach ($mirror in $mirrors) {
@@ -186,11 +179,11 @@ function Select-Mirror {
         Write-Host "  $($i+1)) $($MirrorNames[$i])"
     }
 
-    Write-Host "  6) 不使用镜像（我有代理）"
-    Write-Host "  7) 清除现有镜像配置"
+    Write-Host "  4) 不使用镜像（我有代理）"
+    Write-Host "  5) 清除现有镜像配置"
     Write-Host ""
 
-    $choice = Read-Host "请输入选项 (1-7)"
+    $choice = Read-Host "请输入选项 (1-5)"
 
     switch ($choice) {
         { $_ -in "1", "2", "3" } {
