@@ -5,16 +5,55 @@
 
 $ErrorActionPreference = "Continue"
 
+# ========== PowerShell 版本检测 ==========
+$PSMinVersion = [version]"5.1"
+$PSCurrentVersion = $PSVersionTable.PSVersion
+$PSRecommendVersion = [version]"7.0"
+
+if ($PSCurrentVersion -lt $PSMinVersion) {
+    Write-Host ""
+    Write-Host "  [ERROR] PowerShell 版本过低: $PSCurrentVersion" -ForegroundColor Red
+    Write-Host "  最低要求: $PSMinVersion" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  请升级 PowerShell 后重试" -ForegroundColor Yellow
+    Write-Host ""
+    Read-Host "按 Enter 键退出"
+    exit 1
+}
+
+if ($PSCurrentVersion -lt $PSRecommendVersion) {
+    Write-Host ""
+    Write-Host "  [!] 检测到 PowerShell $PSCurrentVersion" -ForegroundColor Yellow
+    Write-Host "  [i] 推荐升级到 PowerShell 7+ 以获得更好的中文支持" -ForegroundColor Cyan
+    Write-Host ""
+
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        $choice = Read-Host "  是否自动升级 PowerShell 7? (y/n)"
+        if ($choice -eq "y" -or $choice -eq "Y") {
+            Write-Host "  [i] 正在安装 PowerShell 7..." -ForegroundColor Cyan
+            try {
+                winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
+                Write-Host "  [OK] PowerShell 7 安装成功" -ForegroundColor Green
+                Write-Host "  [i] 请关闭当前窗口，打开 'pwsh' 后重新运行此脚本" -ForegroundColor Yellow
+                Write-Host ""
+                Read-Host "  按 Enter 键退出"
+                exit 0
+            } catch {
+                Write-Host "  [!] 自动升级失败: $_" -ForegroundColor Yellow
+                Write-Host "  [i] 将继续使用当前版本" -ForegroundColor Cyan
+            }
+        }
+    }
+    Write-Host ""
+}
+
 # 设置控制台编码为 UTF-8（解决中文乱码）
-# 方法1: 设置 .NET 编码
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 try { [Console]::InputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+try { $null = cmd /c "chcp 65001 >nul 2>&1" } catch {}
 
-# 方法2: 设置代码页（某些旧版 Windows 需要）
-try {
-    $null = cmd /c "chcp 65001 >nul 2>&1"
-} catch {}
 
 # 脚本版本
 $ScriptVersion = "1.0.0"
