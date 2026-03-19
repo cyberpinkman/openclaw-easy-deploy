@@ -274,7 +274,20 @@ check_node() {
 
 # 安装 Node.js
 install_node() {
-    print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
+    # 检测 macOS 版本，决定使用哪个 Node.js 版本
+    local macos_version=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
+    local macos_major=$(echo "$macos_version" | cut -d. -f1)
+    
+    # Node.js 24.x 需要 macOS 12+ (Monterey)
+    # Node.js 22.x 支持 macOS 10.15+ (Catalina)
+    if [ "$macos_major" -lt 12 ]; then
+        print_step "📦 第 2 步：安装 Node.js 22.x LTS"
+        print_warn "检测到 macOS $macos_version，Node.js 24.x 需要 macOS 12+"
+        print_info "将安装 Node.js 22.x LTS（兼容你的系统）"
+        NODE_VERSION="22.14.0"
+    else
+        print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
+    fi
 
     # 检测系统架构
     local arch=$(uname -m)
@@ -287,6 +300,7 @@ install_node() {
     fi
 
     print_info "系统架构: $arch_name"
+    print_info "macOS 版本: $macos_version"
 
     # 检查 Homebrew
     if ! command -v brew &> /dev/null; then

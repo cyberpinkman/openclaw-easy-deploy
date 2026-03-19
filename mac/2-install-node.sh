@@ -2,7 +2,7 @@
 
 # ============================================
 # 🦞 Node.js 安装脚本 (macOS)
-# 自动检测并安装 Node.js 24
+# 自动检测系统版本并安装合适的 Node.js
 # ============================================
 
 set -e
@@ -14,17 +14,24 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Node.js 版本
+# 默认 Node.js 版本（会被自动调整）
 NODE_VERSION="24.14.0"
 
 # 检测系统架构
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
     ARCH_NAME="Apple Silicon (M系列芯片)"
-    NODE_ARCH="darwin-arm64"
 else
     ARCH_NAME="Intel (x86_64)"
-    NODE_ARCH="darwin-x64"
+fi
+
+# 检测 macOS 版本
+MACOS_VERSION=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
+MACOS_MAJOR=$(echo "$MACOS_VERSION" | cut -d. -f1)
+
+# Node.js 24.x 需要 macOS 12+，旧系统使用 22.x LTS
+if [ "$MACOS_MAJOR" -lt 12 ]; then
+    NODE_VERSION="22.14.0"
 fi
 
 # 打印函数
@@ -34,6 +41,10 @@ print_header() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo -e "${BLUE}系统架构: ${ARCH_NAME}${NC}"
+    echo -e "${BLUE}macOS 版本: ${MACOS_VERSION}${NC}"
+    if [ "$MACOS_MAJOR" -lt 12 ]; then
+        echo -e "${YELLOW}Node.js 24.x 需要 macOS 12+，将安装 22.x LTS${NC}"
+    fi
     echo ""
 }
 
