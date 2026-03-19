@@ -258,9 +258,18 @@ check_node() {
     fi
 
     local version=$(node -v 2>/dev/null)
-    local major=$(echo "$version" | sed 's/v\([0-9]*\).*/\1/')
-
     print_info "已安装: $version"
+
+    # 测试 Node.js 是否能正常运行
+    if ! node -e "console.log('OK')" &> /dev/null; then
+        print_warn "Node.js 已安装但无法运行"
+        print_info "可能是架构不匹配或系统版本不兼容"
+        print_info "将重新安装兼容版本..."
+        NEED_NODE=true
+        return 1
+    fi
+
+    local major=$(echo "$version" | sed 's/v\([0-9]*\).*/\1/')
 
     if [ "$major" -lt 22 ]; then
         print_warn "版本过低 (需要 22+)，需要升级"
@@ -268,7 +277,7 @@ check_node() {
         return 1
     fi
 
-    print_ok "版本满足要求"
+    print_ok "版本满足要求，运行正常"
     return 0
 }
 
@@ -277,6 +286,19 @@ install_node() {
     # 检测 macOS 版本，决定使用哪个 Node.js 版本
     local macos_version=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
     local macos_major=$(echo "$macos_version" | cut -d. -f1)
+    
+    # 如果已安装但无法运行，先卸载
+    if command -v node &> /dev/null; then
+        if ! node -e "console.log('OK')" &> /dev/null; then
+            print_warn "检测到无法运行的 Node.js，正在卸载..."
+            # 尝试通过 pkg 卸载
+            sudo pkgutil --forget org.nodejs.pkg 2>/dev/null || true
+            # 删除常见安装路径
+            sudo rm -rf /usr/local/bin/node /usr/local/bin/npm /usr/local/lib/node_modules 2>/dev/null || true
+            sudo rm -rf /opt/homebrew/bin/node /opt/homebrew/bin/npm /opt/homebrew/lib/node_modules 2>/dev/null || true
+            print_ok "已清理旧安装"
+        fi
+    fi
     
     # Node.js 24.x 需要 macOS 12+ (Monterey)
     # Node.js 22.x 支持 macOS 10.15+ (Catalina)

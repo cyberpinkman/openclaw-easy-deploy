@@ -304,24 +304,35 @@ main() {
     # 检查当前版本
     local current_major=$(check_current_node)
 
-    if [ $current_major -ge 24 ]; then
-        print_ok "Node.js 24 已安装 ($(node -v))"
+    if [ $current_major -ge 22 ]; then
+        print_info "当前 Node.js 版本: $(node -v 2>/dev/null || echo '未知')"
         
         # 验证是否能运行
         if node -e "console.log('OK')" 2>/dev/null; then
-            print_ok "Node.js 运行正常，无需重复安装"
-            exit 0
+            print_ok "Node.js 运行正常"
+            
+            if [ $current_major -ge 24 ]; then
+                print_ok "版本满足要求，无需重复安装"
+                exit 0
+            fi
+            
+            print_info "版本满足最低要求，建议升级到 24"
+            echo ""
+            safe_read "是否升级到 Node.js 24? (y/n): "
+            if [[ $choice != "y" && $choice != "Y" ]]; then
+                print_info "跳过安装"
+                exit 0
+            fi
         else
-            print_warn "Node.js 已安装但无法运行，需要重新安装"
-        fi
-    elif [ $current_major -ge 22 ]; then
-        print_info "当前 Node.js 版本: $(node -v)"
-        print_info "版本满足最低要求，建议升级到 24"
-        echo ""
-        safe_read "是否升级到 Node.js 24? (y/n): "
-        if [[ $choice != "y" && $choice != "Y" ]]; then
-            print_info "跳过安装"
-            exit 0
+            print_error "Node.js 已安装但无法运行"
+            print_warn "可能是架构不匹配或系统版本不兼容"
+            print_info "将卸载并重新安装..."
+            
+            # 尝试卸载
+            sudo pkgutil --forget org.nodejs.pkg 2>/dev/null || true
+            sudo rm -rf /usr/local/bin/node /usr/local/bin/npm /usr/local/lib/node_modules 2>/dev/null || true
+            sudo rm -rf /opt/homebrew/bin/node /opt/homebrew/bin/npm /opt/homebrew/lib/node_modules 2>/dev/null || true
+            print_ok "已清理旧安装"
         fi
     else
         print_info "当前 Node.js 版本过低或未安装"
