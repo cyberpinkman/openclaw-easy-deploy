@@ -98,6 +98,50 @@ function Write-SuccessBox {
     Write-Host ""
 }
 
+# 读取数字选项（带验证和重试）
+function Read-NumberChoice {
+    param(
+        [string]$Prompt,
+        [int]$Min,
+        [int]$Max,
+        [int]$Default = $Min
+    )
+
+    $maxAttempts = 5
+    $attempt = 1
+
+    while ($attempt -le $maxAttempts) {
+        $choice = Read-Host $Prompt
+
+        # 空输入，使用默认值
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            return $Default
+        }
+
+        # 去除空白字符
+        $choice = $choice.Trim()
+
+        # 验证是否为数字
+        if ($choice -match '^\d+$') {
+            $num = [int]$choice
+            # 验证范围
+            if ($num -ge $Min -and $num -le $Max) {
+                return $num
+            } else {
+                Write-Warn "请输入 $Min 到 $Max 之间的数字 (当前: $num)"
+            }
+        } else {
+            Write-Warn "请输入数字，而不是: '$choice'"
+        }
+
+        $attempt++
+    }
+
+    # 超过重试次数，使用默认值
+    Write-Warn "已达到最大尝试次数，使用默认选项"
+    return $Default
+}
+
 function Write-FailBox {
     param([string]$Reason)
     Write-Host ""
@@ -312,7 +356,7 @@ function Set-GitMirror {
     Write-Host ""
     Write-Host "你无法直接连接 GitHub，需要配置镜像源" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "请选择镜像源："
+    Write-Host "请选择镜像源 (直接输入数字即可)：" -ForegroundColor Cyan
     Write-Host ""
 
     for ($i = 0; $i -lt $MirrorNames.Count; $i++) {
@@ -320,26 +364,28 @@ function Set-GitMirror {
     }
 
     Write-Host ""
-    $choice = Read-Host "请输入选项 (1-$($MirrorNames.Count))"
+    Write-Host "提示: 输入 1、2 或 3，然后按 Enter" -ForegroundColor Cyan
+    Write-Host ""
 
-    if ($choice -in @("1", "2", "3")) {
-        $mirrorUrl = $GitMirrors[$choice]
-        Write-Info "配置镜像: $mirrorUrl"
+    $choice = Read-NumberChoice -Prompt "请选择 [1-3，默认1]" -Min 1 -Max $MirrorNames.Count -Default 1
 
-        # 清除旧配置
-        foreach ($key in $GitMirrors.Keys) {
-            git config --global --unset url."$($GitMirrors[$key])/github.com/".insteadOf 2>$null
-        }
+    $choiceStr = $choice.ToString()
+    $mirrorUrl = $GitMirrors[$choiceStr]
+    $mirrorName = $MirrorNames[$choice - 1]
 
-        # 设置新配置
-        git config --global url."$mirrorUrl/github.com/".insteadOf "https://github.com/"
+    Write-Info "你选择了: $mirrorName"
+    Write-Info "配置镜像: $mirrorUrl"
 
-        Write-OK "镜像配置成功"
-        return $true
-    } else {
-        Write-Err "无效选项"
-        return $false
+    # 清除旧配置
+    foreach ($key in $GitMirrors.Keys) {
+        git config --global --unset url."$($GitMirrors[$key])/github.com/".insteadOf 2>$null
     }
+
+    # 设置新配置
+    git config --global url."$mirrorUrl/github.com/".insteadOf "https://github.com/"
+
+    Write-OK "镜像配置成功"
+    return $true
 }
 
 # 检测 OpenClaw
@@ -369,7 +415,7 @@ function Test-OpenClaw {
 # 选择 npm 源
 function Select-NpmRegistry {
     Write-Host ""
-    Write-Host "请选择 npm 源："
+    Write-Host "请选择 npm 源 (直接输入数字即可)：" -ForegroundColor Cyan
     Write-Host ""
 
     for ($i = 0; $i -lt $NpmNames.Count; $i++) {
@@ -377,15 +423,18 @@ function Select-NpmRegistry {
     }
 
     Write-Host ""
-    $choice = Read-Host "请输入选项 (1-$($NpmNames.Count))"
+    Write-Host "提示: 输入 1、2 或 3，然后按 Enter" -ForegroundColor Cyan
+    Write-Host ""
 
-    if ($choice -in @("1", "2", "3")) {
-        $registry = $NpmRegistries[$choice]
-        npm config set registry $registry
-        Write-OK "已设置: $registry"
-    } else {
-        Write-Warn "无效选项，使用默认源"
-    }
+    $choice = Read-NumberChoice -Prompt "请选择 [1-3，默认1]" -Min 1 -Max $NpmNames.Count -Default 1
+
+    $choiceStr = $choice.ToString()
+    $registry = $NpmRegistries[$choiceStr]
+    $registryName = $NpmNames[$choice - 1]
+
+    Write-Info "你选择了: $registryName"
+    npm config set registry $registry
+    Write-OK "已设置: $registry"
 }
 
 # 安装 OpenClaw
