@@ -173,7 +173,44 @@ function Test-Environment {
 
     # Windows 版本
     $osInfo = Get-CimInstance Win32_OperatingSystem
+    $osVersion = [Environment]::OSVersion.Version
+    $osMajor = $osVersion.Major
+    $osMinor = $osVersion.Minor
+    
     Write-Info "Windows: $($osInfo.Caption)"
+    Write-Info "版本号: $osMajor.$osMinor"
+
+    # ========== 系统兼容性检查（关键）==========
+    # OpenClaw 需要 Node.js 22.16+
+    # Node.js 22.x 需要 Windows 10 (10.0) 或更高
+    if ($osMajor -lt 10) {
+        Write-Host ""
+        Write-Err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        Write-Err "  ⛔ 系统版本过低，无法安装 OpenClaw"
+        Write-Err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        Write-Host ""
+        Write-Err "你的系统: Windows $osMajor.$osMinor"
+        Write-Err "最低要求: Windows 10"
+        Write-Host ""
+        Write-Info "原因：OpenClaw 需要 Node.js 22.16+，而 Node.js 22.x"
+        Write-Info "      仅支持 Windows 10 及以上版本"
+        Write-Host ""
+        Write-Host "解决方案：" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  1. 升级 Windows（推荐）" -ForegroundColor Cyan
+        Write-Host "     - 设置 → 更新和安全 → Windows 更新"
+        Write-Host ""
+        Write-Host "  2. 使用其他电脑" -ForegroundColor Cyan
+        Write-Host "     - Windows 10/11"
+        Write-Host "     - macOS 10.15+"
+        Write-Host "     - Linux"
+        Write-Host ""
+        Write-Host "  3. 使用云服务器" -ForegroundColor Cyan
+        Write-Host "     - 阿里云、腾讯云等 VPS"
+        Write-Host ""
+        return $false
+    }
+    Write-OK "系统版本兼容 (Windows $osMajor.$osMinor >= 10)"
 
     # 内存
     $totalMem = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory

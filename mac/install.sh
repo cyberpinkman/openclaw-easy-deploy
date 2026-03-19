@@ -216,9 +216,44 @@ detect_environment() {
     # 系统信息
     local os_version=$(sw_vers -productVersion 2>/dev/null || echo "未知")
     local chip=$(uname -m)
+    local macos_major=$(echo "$os_version" | cut -d. -f1)
+    local macos_minor=$(echo "$os_version" | cut -d. -f2)
 
     print_info "macOS 版本: $os_version"
     print_info "芯片: $([ "$chip" = "arm64" ] && echo "Apple Silicon" || echo "Intel")"
+
+    # ========== 系统兼容性检查（关键）==========
+    # OpenClaw 需要 Node.js 22.16+
+    # Node.js 22.x 需要 macOS 10.15+ (Catalina)
+    if [ "$macos_major" -lt 10 ] || ([ "$macos_major" -eq 10 ] && [ "$macos_minor" -lt 15 ]); then
+        echo ""
+        print_error "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        print_error "  ⛔ 系统版本过低，无法安装 OpenClaw"
+        print_error "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        print_error "你的系统: macOS $os_version"
+        print_error "最低要求: macOS 10.15 (Catalina)"
+        echo ""
+        print_info "原因：OpenClaw 需要 Node.js 22.16+，而 Node.js 22.x"
+        print_info "      仅支持 macOS 10.15 及以上版本"
+        echo ""
+        echo -e "${YELLOW}解决方案：${NC}"
+        echo ""
+        echo "  1. 升级 macOS（推荐）"
+        echo "     - 系统偏好设置 → 软件更新"
+        echo "     - 或访问: https://support.apple.com/zh-cn/HT201372"
+        echo ""
+        echo "  2. 使用其他电脑"
+        echo "     - macOS 10.15+ 的 Mac"
+        echo "     - Windows 10/11"
+        echo "     - Linux"
+        echo ""
+        echo "  3. 使用云服务器"
+        echo "     - 阿里云、腾讯云等 VPS"
+        echo ""
+        return 1
+    fi
+    print_ok "系统版本兼容 (macOS $os_version >= 10.15)"
 
     # 内存检查
     local total_mem=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
