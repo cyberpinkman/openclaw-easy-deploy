@@ -23,20 +23,17 @@ run_with_timeout() {
 }
 
 # 镜像源列表（兼容 bash 3.2，不使用关联数组）
+# 注意：hub.fastgit.xyz 已停服，已移除
 MIRROR_URLS=(
     "https://gitclone.com"
-    "https://hub.fastgit.xyz"
     "https://mirror.ghproxy.com"
     "https://ghproxy.net"
-    "https://gh-proxy.com"
 )
 
 MIRROR_NAMES=(
     "gitclone.com"
-    "hub.fastgit.xyz"
     "mirror.ghproxy.com"
     "ghproxy.net"
-    "gh-proxy.com"
 )
 
 # 打印函数
@@ -170,11 +167,8 @@ clear_mirror_config() {
     print_step "清除 Git 镜像配置"
 
     git config --global --unset url."https://gitclone.com/github.com/".insteadOf 2>/dev/null || true
-    git config --global --unset url."https://hub.fastgit.xyz/github.com/".insteadOf 2>/dev/null || true
     git config --global --unset url."https://mirror.ghproxy.com/github.com/".insteadOf 2>/dev/null || true
     git config --global --unset url."https://ghproxy.net/github.com/".insteadOf 2>/dev/null || true
-    git config --global --unset url."https://gh-proxy.com/github.com/".insteadOf 2>/dev/null || true
-    git config --global --unset url."https://gitclone.com/github.com/".insteadOf 2>/dev/null || true
 
     print_ok "已清除镜像配置"
 }
@@ -189,8 +183,8 @@ select_mirror() {
         echo "  $((i+1))) ${MIRROR_NAMES[$i]}"
     done
 
-    echo "  6) 不使用镜像（我有代理）"
-    echo "  7) 清除现有镜像配置"
+    echo "  4) 不使用镜像（我有代理）"
+    echo "  5) 清除现有镜像配置"
     echo ""
 
     read -p "请输入选项 (1-7): " choice
@@ -286,6 +280,15 @@ main() {
     echo -e "当前 Git 配置:"
     echo ""
     git config --global --list 2>/dev/null | grep -E "(url\..*\.insteadof|user\.)" || print_info "无特殊配置"
+    echo ""
+    echo -e "下一步: 运行 ${YELLOW}4-install-openclaw.sh${NC} 安装小龙虾"
+    echo -e "如需更换镜像源，可重新运行此脚本"
+    echo ""
+}
+
+# 运行
+main
+   git config --global --list 2>/dev/null | grep -E "(url\..*\.insteadof|user\.)" || print_info "无特殊配置"
     echo ""
     echo -e "下一步: 运行 ${YELLOW}4-install-openclaw.sh${NC} 安装小龙虾"
     echo -e "如需更换镜像源，可重新运行此脚本"

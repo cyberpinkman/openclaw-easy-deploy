@@ -96,7 +96,7 @@ function Install-Git {
         $version = (git --version 2>$null) -replace 'git version (.*)', '$1'
         Write-ColorOutput "Git 已安装: $version" -Type OK
         return $true
-    fi
+    }
 
     Write-ColorOutput "Git 未安装，正在安装..." -Type Info
 
@@ -193,15 +193,15 @@ function Select-Mirror {
     $choice = Read-Host "请输入选项 (1-7)"
 
     switch ($choice) {
-        { $_ -in "1", "2", "3", "4", "5" } {
+        { $_ -in "1", "2", "3" } {
             $mirrorUrl = $GitMirrors[$choice]
             Set-GitMirror -MirrorUrl $mirrorUrl | Out-Null
         }
-        "6" {
+        "4" {
             Clear-MirrorConfig
             Write-ColorOutput "将使用直连或代理访问 GitHub" -Type OK
         }
-        "7" {
+        "5" {
             Clear-MirrorConfig
         }
         default {
@@ -301,4 +301,6 @@ function Main {
 }
 
 # 运行
+Main
+�行
 Main

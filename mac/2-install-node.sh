@@ -150,12 +150,12 @@ install_via_nvm() {
     fi
 
     print_info "正在安装 Node.js 24..."
-    nvm install 24
-    nvm use 24
-    nvm alias default 24
-
-    if [ $? -eq 0 ]; then
+    if nvm install 24 && nvm use 24 && nvm alias default 24; then
         print_ok "Node.js 安装成功"
+
+        # 确保当前 shell 能使用 node
+        export PATH="$HOME/.nvm/versions/node/$(nvm current)/bin:$PATH"
+
         return 0
     else
         print_error "Node.js 安装失败"
@@ -255,6 +255,12 @@ main() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo -e "下一步: 运行 ${YELLOW}3-install-git.sh${NC} 安装/配置 Git"
+    echo ""
+}
+
+# 运行
+main
+下一步: 运行 ${YELLOW}3-install-git.sh${NC} 安装/配置 Git"
     echo ""
 }
 
