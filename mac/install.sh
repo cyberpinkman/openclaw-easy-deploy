@@ -5,15 +5,16 @@
 # 用户只需要运行这一条命令即可完成所有安装
 # ============================================
 
-# 重要：如果通过管道运行（curl | bash），需要重新连接到终端
-# 否则 read 命令无法获取用户输入
-if [ -t 0 ]; then
-    : # 已连接到终端，正常
-elif [ -t 1 ] && [ -e /dev/tty ]; then
-    exec < /dev/tty # 重新连接到终端
-fi
-
 # 不使用 set -e，我们自己处理错误
+
+# 确定输入来源：如果 stdin 是管道，用 /dev/tty
+get_tty_input() {
+    if [ -t 0 ]; then
+        cat
+    else
+        cat /dev/tty
+    fi
+}
 
 # 颜色定义
 RED='\033[0;31m'
@@ -24,7 +25,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # 脚本版本
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 
 # Node.js 目标版本
 NODE_VERSION="24.1.0"
@@ -128,11 +129,49 @@ run_with_timeout() {
     perl -e 'alarm shift; exec @ARGV' "$timeout_sec" "$@" 2>/dev/null
 }
 
-# 等待用户确认
+# 等待用户确认（兼容管道运行）
 wait_continue() {
     local msg="${1:-按 Enter 继续...}"
     echo ""
-    read -p "$msg" dummy
+    if [ -t 0 ]; then
+        read -p "$msg" dummy
+    else
+        echo "$msg"
+        read dummy < /dev/tty
+    fi
+}
+
+# 询问用户 y/n（兼容管道运行）
+ask_yes_no() {
+    local prompt="$1"
+    local answer
+
+    if [ -t 0 ]; then
+        read -p "$prompt (y/n): " answer
+    else
+        echo "$prompt (y/n): "
+        read answer < /dev/tty
+    fi
+
+    case "$answer" in
+        y|Y|yes|YES) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# 读取用户选择（兼容管道运行）
+read_choice() {
+    local prompt="$1"
+    local answer
+
+    if [ -t 0 ]; then
+        read -p "$prompt" answer
+    else
+        echo "$prompt"
+        read answer < /dev/tty
+    fi
+
+    echo "$answer"
 }
 
 # 检测系统环境
@@ -306,7 +345,8 @@ configure_git_mirror() {
     done
 
     echo ""
-    read -p "请输入选项 (1-${#MIRROR_NAMES[@]}): " choice
+
+    local choice=$(read_choice "请输入选项 (1-${#MIRROR_NAMES[@]}): ")
 
     local idx=$((choice-1))
 
@@ -346,8 +386,7 @@ check_openclaw() {
         print_ok "已安装: $version"
 
         echo ""
-        read -p "是否重新安装/更新? (y/n): " choice
-        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        if ask_yes_no "是否重新安装/更新?"; then
             NEED_OPENCLAW=true
             return 1
         fi
@@ -371,7 +410,8 @@ select_npm_registry() {
     done
 
     echo ""
-    read -p "请输入选项 (1-${#NPM_NAMES[@]}): " choice
+
+    local choice=$(read_choice "请输入选项 (1-${#NPM_NAMES[@]}): ")
 
     local idx=$((choice-1))
 
@@ -446,9 +486,7 @@ run_onboarding() {
     echo "  • 安装后台服务（可选）"
     echo ""
 
-    read -p "是否启动配置向导? (y/n): " choice
-
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+    if ask_yes_no "是否启动配置向导"; then
         print_info "启动配置向导..."
         echo ""
         openclaw onboard --install-daemon
@@ -535,14 +573,13 @@ main() {
     # 第 2 步：安装 Node.js（如果需要）
     if [ "$NEED_NODE" = true ]; then
         echo ""
-        read -p "需要安装 Node.js，是否继续? (y/n): " choice
-        if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+        if ask_yes_no "需要安装 Node.js，是否继续"; then
+            if ! install_node; then
+                show_failed "Node.js 安装失败"
+                exit 1
+            fi
+        else
             show_failed "用户取消安装 Node.js"
-            exit 1
-        fi
-
-        if ! install_node; then
-            show_failed "Node.js 安装失败"
             exit 1
         fi
     fi
@@ -550,13 +587,12 @@ main() {
     # 第 3 步：配置镜像（如果需要）
     if [ "$NEED_GIT_MIRROR" = true ]; then
         echo ""
-        read -p "需要配置 GitHub 镜像源，是否继续? (y/n): " choice
-        if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
-            print_warn "跳过镜像配置，后续安装可能失败"
-        else
+        if ask_yes_no "需要配置 GitHub 镜像源，是否继续"; then
             if ! configure_git_mirror; then
                 print_warn "镜像配置失败，尝试继续..."
             fi
+        else
+            print_warn "跳过镜像配置，后续安装可能失败"
         fi
     fi
 

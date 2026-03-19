@@ -5,13 +5,6 @@
 # 安装 Git 并配置 GitHub 镜像源（中国用户）
 # ============================================
 
-# 重要：如果通过管道运行（curl | bash），需要重新连接到终端
-if [ -t 0 ]; then
-    : # 已连接到终端，正常
-elif [ -t 1 ] && [ -e /dev/tty ]; then
-    exec < /dev/tty # 重新连接到终端
-fi
-
 # 不使用 set -e，避免非关键错误导致脚本退出
 
 # 颜色定义
@@ -21,16 +14,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# macOS 兼容的 timeout 函数
-run_with_timeout() {
-    local timeout_sec=$1
-    shift
-    local cmd="$@"
-    perl -e 'alarm shift; exec @ARGV' "$timeout_sec" $cmd 2>/dev/null
-}
-
-# 镜像源列表（兼容 bash 3.2，不使用关联数组）
-# 注意：hub.fastgit.xyz 已停服，已移除
+# 镜像源列表（注意：hub.fastgit.xyz 已停服，已移除）
 MIRROR_URLS=(
     "https://gitclone.com"
     "https://mirror.ghproxy.com"
@@ -42,6 +26,23 @@ MIRROR_NAMES=(
     "mirror.ghproxy.com"
     "ghproxy.net"
 )
+
+# macOS 兼容的 timeout 函数
+run_with_timeout() {
+    local timeout_sec=$1
+    shift
+    perl -e 'alarm shift; exec @ARGV' "$timeout_sec" "$@" 2>/dev/null
+}
+
+# 安全读取用户输入
+safe_read() {
+    local prompt="$1"
+    if [ -t 0 ]; then
+        read -p "$prompt" choice
+    else
+        read -p "$prompt" choice < /dev/tty
+    fi
+}
 
 # 打印函数
 print_header() {
@@ -154,9 +155,8 @@ configure_git_mirror() {
 
     print_step "配置 Git 镜像源: $mirror_url"
 
-    # 配置 URL 重写规则
+    # 配置 URL 重写规则（仅 HTTPS，镜像站通常不支持 SSH）
     git config --global url."$mirror_url/github.com/".insteadOf "https://github.com/"
-    git config --global url."$mirror_url/github.com/".insteadOf "git@github.com:"
 
     # 测试配置
     print_info "测试镜像连接..."
@@ -194,19 +194,19 @@ select_mirror() {
     echo "  5) 清除现有镜像配置"
     echo ""
 
-    read -p "请输入选项 (1-7): " choice
+    safe_read "请输入选项 (1-5): "
 
     case $choice in
-        1|2|3|4|5)
+        1|2|3)
             local idx=$((choice-1))
             local mirror_url="${MIRROR_URLS[$idx]}"
             configure_git_mirror "$mirror_url"
             ;;
-        6)
+        4)
             clear_mirror_config
             print_ok "将使用直连或代理访问 GitHub"
             ;;
-        7)
+        5)
             clear_mirror_config
             print_ok "已清除镜像配置"
             ;;
@@ -230,11 +230,14 @@ configure_git_user() {
     fi
 
     echo ""
-    read -p "是否配置 Git 用户信息? (y/n): " choice
+    safe_read "是否配置 Git 用户信息? (y/n): "
 
     if [[ $choice == "y" || $choice == "Y" ]]; then
-        read -p "请输入用户名: " username
-        read -p "请输入邮箱: " email
+        safe_read "请输入用户名: "
+        local username=$choice
+
+        safe_read "请输入邮箱: "
+        local email=$choice
 
         git config --global user.name "$username"
         git config --global user.email "$email"
@@ -256,7 +259,7 @@ main() {
     echo "  如果有，请确保已开启代理，然后继续"
     echo "  如果没有，脚本会帮你配置 GitHub 镜像源"
     echo ""
-    read -p "按 Enter 继续..." dummy
+    safe_read "按 Enter 继续..."
 
     # 检测代理
     if check_proxy; then
@@ -287,15 +290,6 @@ main() {
     echo -e "当前 Git 配置:"
     echo ""
     git config --global --list 2>/dev/null | grep -E "(url\..*\.insteadof|user\.)" || print_info "无特殊配置"
-    echo ""
-    echo -e "下一步: 运行 ${YELLOW}4-install-openclaw.sh${NC} 安装小龙虾"
-    echo -e "如需更换镜像源，可重新运行此脚本"
-    echo ""
-}
-
-# 运行
-main
-   git config --global --list 2>/dev/null | grep -E "(url\..*\.insteadof|user\.)" || print_info "无特殊配置"
     echo ""
     echo -e "下一步: 运行 ${YELLOW}4-install-openclaw.sh${NC} 安装小龙虾"
     echo -e "如需更换镜像源，可重新运行此脚本"

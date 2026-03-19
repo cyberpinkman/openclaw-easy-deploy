@@ -5,14 +5,6 @@
 # 自动检测并安装 Node.js 24
 # ============================================
 
-# 重要：如果通过管道运行（curl | bash），需要重新连接到终端
-# 否则 read 命令无法获取用户输入
-if [ -t 0 ]; then
-    : # 已连接到终端，正常
-elif [ -t 1 ] && [ -e /dev/tty ]; then
-    exec < /dev/tty # 重新连接到终端
-fi
-
 set -e
 
 # 颜色定义
@@ -21,6 +13,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# Node.js 版本
+NODE_VERSION="24.1.0"
 
 # 打印函数
 print_header() {
@@ -44,6 +39,16 @@ print_error() {
 
 print_info() {
     echo -e "  ${BLUE}ℹ${NC} $1"
+}
+
+# 安全读取用户输入
+safe_read() {
+    local prompt="$1"
+    if [ -t 0 ]; then
+        read -p "$prompt" choice
+    else
+        read -p "$prompt" choice < /dev/tty
+    fi
 }
 
 # 检查当前 Node.js 版本
@@ -98,12 +103,7 @@ install_via_homebrew() {
 install_via_official() {
     print_step "下载官方安装包"
 
-    local download_url="https://nodejs.org/dist/v24.0.0/node-v24.0.0.pkg"
-
-    # 检测芯片类型
-    if [[ $(uname -m) == "arm64" ]]; then
-        download_url="https://nodejs.org/dist/v24.0.0/node-v24.0.0.pkg"
-    fi
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
 
     print_info "下载地址: $download_url"
     print_info "正在下载..."
@@ -141,7 +141,7 @@ install_via_nvm() {
     if [ ! -d "$HOME/.nvm" ]; then
         print_info "nvm 未安装，正在安装..."
 
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 
         if [ $? -ne 0 ]; then
             print_error "nvm 安装失败"
@@ -220,7 +220,7 @@ main() {
         print_info "当前 Node.js 版本: $(node -v)"
         print_info "版本满足最低要求，建议升级到 24"
         echo ""
-        read -p "是否升级到 Node.js 24? (y/n): " choice
+        safe_read "是否升级到 Node.js 24? (y/n): "
         if [[ $choice != "y" && $choice != "Y" ]]; then
             print_info "跳过安装"
             exit 0
@@ -236,7 +236,7 @@ main() {
     echo "  2) 官方安装包"
     echo "  3) nvm (适合开发者)"
     echo ""
-    read -p "请输入选项 (1-3): " choice
+    safe_read "请输入选项 (1-3): "
 
     case $choice in
         1)
@@ -263,12 +263,6 @@ main() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo -e "下一步: 运行 ${YELLOW}3-install-git.sh${NC} 安装/配置 Git"
-    echo ""
-}
-
-# 运行
-main
-下一步: 运行 ${YELLOW}3-install-git.sh${NC} 安装/配置 Git"
     echo ""
 }
 
