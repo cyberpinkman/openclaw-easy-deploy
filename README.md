@@ -32,20 +32,17 @@ curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/m
 
 **方式一：Gitee（国内推荐）**
 ```powershell
-# 先下载脚本文件（解决编码问题）
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Invoke-WebRequest -Uri "https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1" -OutFile "$env:TEMP\install.ps1" -Encoding UTF8
-& "$env:TEMP\install.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex
 ```
 
 **方式二：GitHub（有代理用户）**
 ```powershell
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1" -OutFile "$env:TEMP\install.ps1" -Encoding UTF8
-& "$env:TEMP\install.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
 ```
 
-**如果仍然乱码，使用英文版：**
+**如果中文显示乱码，使用英文版：**
 ```powershell
 iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 | iex
 ```
