@@ -167,7 +167,7 @@ read_choice() {
     if [ -t 0 ]; then
         read -p "$prompt" answer
     else
-        echo "$prompt"
+        echo "$prompt" >&2  # 输出到 stderr，不被 $() 捕获
         read answer < /dev/tty
     fi
 
