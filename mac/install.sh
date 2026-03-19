@@ -5,6 +5,14 @@
 # 用户只需要运行这一条命令即可完成所有安装
 # ============================================
 
+# 重要：如果通过管道运行（curl | bash），需要重新连接到终端
+# 否则 read 命令无法获取用户输入
+if [ -t 0 ]; then
+    : # 已连接到终端，正常
+elif [ -t 1 ] && [ -e /dev/tty ]; then
+    exec < /dev/tty # 重新连接到终端
+fi
+
 # 不使用 set -e，我们自己处理错误
 
 # 颜色定义
@@ -139,22 +147,28 @@ detect_environment() {
     print_info "芯片: $([ "$chip" = "arm64" ] && echo "Apple Silicon" || echo "Intel")"
 
     # 内存检查
-    local total_mem=$(sysctl -n hw.memsize 2>/dev/null)
-    local mem_gb=$((total_mem / 1024 / 1024 / 1024))
-
-    if [ $mem_gb -lt 4 ]; then
-        print_error "内存过低 (${mem_gb}GB)，建议至少 4GB"
-        return 1
+    local total_mem=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+    if [ -z "$total_mem" ] || [ "$total_mem" = "0" ]; then
+        print_warn "无法检测内存大小，跳过检查"
+    else
+        local mem_gb=$((total_mem / 1024 / 1024 / 1024))
+        if [ "$mem_gb" -lt 4 ]; then
+            print_error "内存过低 (${mem_gb}GB)，建议至少 4GB"
+            return 1
+        fi
+        print_ok "内存: ${mem_gb}GB"
     fi
-    print_ok "内存: ${mem_gb}GB"
 
     # 硬盘空间检查
     local free_space=$(df -g / 2>/dev/null | awk 'NR==2 {print $4}')
-    if [ "$free_space" -lt 2 ]; then
+    if [ -z "$free_space" ]; then
+        print_warn "无法检测硬盘空间，跳过检查"
+    elif [ "$free_space" -lt 2 ] 2>/dev/null; then
         print_error "硬盘空间不足 (${free_space}GB)，建议至少 2GB"
         return 1
+    else
+        print_ok "可用空间: ${free_space}GB"
     fi
-    print_ok "可用空间: ${free_space}GB"
 
     return 0
 }
