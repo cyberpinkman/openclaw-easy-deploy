@@ -377,7 +377,7 @@ install_node() {
         print_step "📦 第 2 步：安装 Node.js 22.x LTS"
         print_warn "检测到 macOS $macos_version，Node.js 24.x 需要 macOS 12+"
         print_info "将安装 Node.js 22.x LTS（兼容你的系统）"
-        NODE_VERSION="22.14.0"
+        NODE_VERSION="22.22.1"
     else
         print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
     fi

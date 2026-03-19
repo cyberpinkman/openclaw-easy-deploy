@@ -40,7 +40,7 @@ if [ "$MACOS_MAJOR" -lt 10 ] || ([ "$MACOS_MAJOR" -eq 10 ] && [ "$MACOS_MINOR" -
     COMPAT_MODE="old"
 elif [ "$MACOS_MAJOR" -lt 12 ]; then
     # macOS 10.15-11.x
-    NODE_VERSION="22.14.0"
+    NODE_VERSION="22.22.1"
     COMPAT_MODE="medium"
 else
     NODE_VERSION="24.14.0"
