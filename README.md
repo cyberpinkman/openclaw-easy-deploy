@@ -32,20 +32,15 @@ curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/m
 
 **方式一：Gitee（国内推荐）**
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex
+iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 | iex
 ```
 
 **方式二：GitHub（有代理用户）**
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
-```
-
-**如果中文显示乱码，使用英文版：**
-```powershell
 iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 | iex
 ```
+
+> 💡 提示：如果中文版显示乱码，请使用上述英文版脚本，功能完全相同。
 
 ---
 
