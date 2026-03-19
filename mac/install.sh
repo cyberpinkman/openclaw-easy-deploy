@@ -577,6 +577,11 @@ configure_git_mirror() {
 
     # 设置新配置
     git config --global url."$mirror_url/github.com/".insteadOf "https://github.com/"
+    # 同时配置 SSH 转 HTTPS（重要！某些 npm 包用 SSH 协议）
+    git config --global url."$mirror_url/github.com/".insteadOf "ssh://git@github.com/"
+    git config --global url."$mirror_url/github.com/".insteadOf "git@github.com:"
+
+    print_info "已配置镜像（HTTPS + SSH）"
 
     # 测试
     print_info "测试镜像连接..."
@@ -584,8 +589,8 @@ configure_git_mirror() {
         print_ok "镜像配置成功"
         return 0
     else
-        print_error "镜像连接失败，请尝试其他镜像"
-        return 1
+        print_warn "镜像测试失败，但已配置，尝试继续..."
+        return 0
     fi
 }
 
@@ -654,7 +659,21 @@ install_openclaw() {
     # 设置环境变量避免 sharp 问题
     export SHARP_IGNORE_GLOBAL_LIBVIPS=1
 
+    # 尝试安装（先不用 sudo）
     if npm install -g openclaw@latest 2>&1; then
+        # 验证安装
+        if command -v openclaw &> /dev/null; then
+            local version=$(openclaw --version 2>/dev/null || echo "未知版本")
+            print_ok "小龙虾安装成功: $version"
+            return 0
+        fi
+    fi
+
+    # 如果失败，可能是权限问题，尝试 sudo
+    print_warn "普通安装失败，尝试使用 sudo..."
+    print_info "请输入管理员密码..."
+    
+    if sudo npm install -g openclaw@latest 2>&1; then
         # 验证安装
         if command -v openclaw &> /dev/null; then
             local version=$(openclaw --version 2>/dev/null || echo "未知版本")
