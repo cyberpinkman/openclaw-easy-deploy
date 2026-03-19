@@ -17,11 +17,23 @@ NC='\033[0m'
 # Node.js 版本
 NODE_VERSION="24.1.0"
 
+# 检测系统架构
+ARCH=$(uname -m)
+if [ "$ARCH" = "arm64" ]; then
+    ARCH_NAME="Apple Silicon (M系列芯片)"
+    NODE_ARCH="darwin-arm64"
+else
+    ARCH_NAME="Intel (x86_64)"
+    NODE_ARCH="darwin-x64"
+fi
+
 # 打印函数
 print_header() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}  🦞 Node.js 安装脚本 (macOS)${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${BLUE}系统架构: ${ARCH_NAME}${NC}"
     echo ""
 }
 
@@ -35,6 +47,10 @@ print_ok() {
 
 print_error() {
     echo -e "  ${RED}✗${NC} $1"
+}
+
+print_warn() {
+    echo -e "  ${YELLOW}⚠${NC} $1"
 }
 
 print_info() {
@@ -62,6 +78,40 @@ check_current_node() {
     fi
 }
 
+# 验证 Node.js 是否能正常运行
+verify_node_works() {
+    print_step "验证 Node.js 运行状态"
+
+    if ! command -v node &> /dev/null; then
+        print_error "Node.js 未找到"
+        return 1
+    fi
+
+    # 测试 node 是否能正常执行
+    if node -e "console.log('OK')" 2>/dev/null; then
+        print_ok "Node.js 运行正常"
+        return 0
+    else
+        print_error "Node.js 无法运行，可能是架构不匹配"
+        
+        # 检查 node 二进制的架构
+        local node_path=$(which node 2>/dev/null)
+        if [ -n "$node_path" ]; then
+            local node_arch=$(file "$node_path" 2>/dev/null | grep -o 'arm64\|x86_64' | head -1)
+            print_info "Node.js 二进制架构: $node_arch"
+            print_info "系统架构: $ARCH"
+            
+            if [ "$node_arch" != "$ARCH" ] && [ "$node_arch" != "arm64" ] && [ "$ARCH" = "arm64" ]; then
+                print_error "架构不匹配! 你安装了 Intel 版 Node.js，但系统是 Apple Silicon"
+            elif [ "$node_arch" = "arm64" ] && [ "$ARCH" != "arm64" ]; then
+                print_error "架构不匹配! 你安装了 ARM 版 Node.js，但系统是 Intel Mac"
+            fi
+        fi
+        
+        return 1
+    fi
+}
+
 # 使用 Homebrew 安装 Node.js
 install_via_homebrew() {
     print_step "使用 Homebrew 安装 Node.js 24"
@@ -85,34 +135,41 @@ install_via_homebrew() {
     fi
 
     print_info "正在更新 Homebrew..."
-    brew update
+    brew update 2>/dev/null || print_warn "Homebrew 更新跳过"
 
     print_info "正在安装 Node.js..."
     brew install node
 
     if [ $? -eq 0 ]; then
-        print_ok "Node.js 安装成功"
-        return 0
+        # 验证架构和运行状态
+        if verify_node_works; then
+            print_ok "Node.js 安装成功且运行正常"
+            return 0
+        else
+            print_warn "Homebrew 安装的 Node.js 无法运行，尝试使用官方安装包..."
+            return 1
+        fi
     else
-        print_error "Node.js 安装失败"
+        print_error "Homebrew 安装失败"
         return 1
     fi
 }
 
-# 使用官方安装包安装
+# 使用官方安装包安装（根据架构自动选择）
 install_via_official() {
     print_step "下载官方安装包"
 
-    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
+    # 根据架构选择正确的下载链接
+    local pkg_suffix="${NODE_ARCH}.pkg"
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${pkg_suffix}"
 
+    print_info "系统架构: $ARCH_NAME"
     print_info "下载地址: $download_url"
     print_info "正在下载..."
 
     local tmp_file="/tmp/node-installer.pkg"
 
-    curl -fsSL "$download_url" -o "$tmp_file"
-
-    if [ $? -ne 0 ]; then
+    if ! curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
         print_error "下载失败"
         print_info "请手动下载: https://nodejs.org"
         return 1
@@ -121,12 +178,21 @@ install_via_official() {
     print_info "正在安装..."
     print_info "请输入管理员密码以继续安装..."
 
-    sudo installer -pkg "$tmp_file" -target /
-
-    if [ $? -eq 0 ]; then
-        print_ok "Node.js 安装成功"
+    if sudo installer -pkg "$tmp_file" -target / 2>/dev/null; then
         rm -f "$tmp_file"
-        return 0
+        
+        # 刷新 PATH
+        export PATH="/usr/local/bin:$PATH"
+        
+        # 验证运行状态
+        if verify_node_works; then
+            print_ok "Node.js 安装成功且运行正常"
+            return 0
+        else
+            print_error "安装成功但 Node.js 无法运行"
+            print_error "可能存在系统兼容性问题"
+            return 1
+        fi
     else
         print_error "安装失败"
         rm -f "$tmp_file"
@@ -164,7 +230,14 @@ install_via_nvm() {
         # 确保当前 shell 能使用 node
         export PATH="$HOME/.nvm/versions/node/$(nvm current)/bin:$PATH"
 
-        return 0
+        # 验证运行状态
+        if verify_node_works; then
+            print_ok "Node.js 运行正常"
+            return 0
+        else
+            print_warn "nvm 安装的 Node.js 无法运行"
+            return 1
+        fi
     else
         print_error "Node.js 安装失败"
         return 1
@@ -173,7 +246,7 @@ install_via_nvm() {
 
 # 验证安装
 verify_installation() {
-    print_step "验证安装"
+    print_step "最终验证"
 
     # 重新加载 shell 环境
     if [ -f "$HOME/.zshrc" ]; then
@@ -192,7 +265,15 @@ verify_installation() {
         local major=$(echo $version | sed 's/v\([0-9]*\).*/\1/')
         if [ $major -ge 22 ]; then
             print_ok "版本满足要求"
-            return 0
+            
+            # 测试运行
+            if node -e "console.log('OK')" 2>/dev/null; then
+                print_ok "Node.js 运行正常"
+                return 0
+            else
+                print_error "Node.js 无法运行"
+                return 1
+            fi
         else
             print_error "版本仍然过低"
             return 1
@@ -214,8 +295,14 @@ main() {
 
     if [ $current_major -ge 24 ]; then
         print_ok "Node.js 24 已安装 ($(node -v))"
-        print_info "无需重复安装"
-        exit 0
+        
+        # 验证是否能运行
+        if node -e "console.log('OK')" 2>/dev/null; then
+            print_ok "Node.js 运行正常，无需重复安装"
+            exit 0
+        else
+            print_warn "Node.js 已安装但无法运行，需要重新安装"
+        fi
     elif [ $current_major -ge 22 ]; then
         print_info "当前 Node.js 版本: $(node -v)"
         print_info "版本满足最低要求，建议升级到 24"
@@ -233,20 +320,32 @@ main() {
     echo ""
     echo -e "${YELLOW}请选择安装方式：${NC}"
     echo "  1) Homebrew (推荐，最简单)"
-    echo "  2) 官方安装包"
+    echo "  2) 官方安装包 (自动适配架构)"
     echo "  3) nvm (适合开发者)"
     echo ""
     safe_read "请输入选项 (1-3): "
 
     case $choice in
         1)
-            install_via_homebrew
+            if ! install_via_homebrew; then
+                print_warn "Homebrew 安装失败或 Node.js 无法运行，尝试官方安装包..."
+                if ! install_via_official; then
+                    print_error "所有安装方式都失败了"
+                    exit 1
+                fi
+            fi
             ;;
         2)
-            install_via_official
+            if ! install_via_official; then
+                print_error "官方安装包安装失败"
+                exit 1
+            fi
             ;;
         3)
-            install_via_nvm
+            if ! install_via_nvm; then
+                print_error "nvm 安装失败"
+                exit 1
+            fi
             ;;
         *)
             print_error "无效选项"

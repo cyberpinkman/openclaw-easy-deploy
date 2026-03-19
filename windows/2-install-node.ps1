@@ -28,7 +28,21 @@ function Print-Header {
     Write-ColorOutput "  🦞 Node.js 安装脚本 (Windows)" -Type Header
     Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -Type Header
     Write-Host ""
+    
+    # 检测系统架构
+    $arch = $env:PROCESSOR_ARCHITECTURE
+    if ($arch -eq "AMD64") {
+        Write-ColorOutput "系统架构: x64 (64位)" -Type Info
+    } elseif ($arch -eq "ARM64") {
+        Write-ColorOutput "系统架构: ARM64" -Type Info
+    } else {
+        Write-ColorOutput "系统架构: $arch" -Type Info
+    }
+    Write-Host ""
 }
+
+# Node.js 版本
+$script:NodeVersion = "24.1.0"
 
 # 获取当前 Node.js 版本
 function Get-CurrentNodeVersion {
@@ -39,6 +53,33 @@ function Get-CurrentNodeVersion {
         return $major
     }
     return 0
+}
+
+# 验证 Node.js 是否能正常运行
+function Test-NodeExecution {
+    Write-ColorOutput "验证 Node.js 运行状态" -Type Step
+
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        Write-ColorOutput "Node.js 未找到" -Type Error
+        return $false
+    }
+
+    # 测试 node 是否能正常执行
+    try {
+        $result = node -e "console.log('OK')" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-ColorOutput "Node.js 运行正常" -Type OK
+            return $true
+        } else {
+            Write-ColorOutput "Node.js 无法运行" -Type Error
+            Write-ColorOutput "可能是架构不匹配或安装损坏" -Type Info
+            return $false
+        }
+    } catch {
+        Write-ColorOutput "Node.js 运行测试失败: $_" -Type Error
+        return $false
+    }
 }
 
 # 使用 winget 安装
@@ -58,8 +99,19 @@ function Install-ViaWinget {
     try {
         # 使用 OpenJS.NodeJS (Current 24.x) 而非 LTS (22.x)
         winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements
-        Write-ColorOutput "Node.js 安装成功" -Type OK
-        return $true
+        
+        # 刷新环境变量
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Start-Sleep -Seconds 2
+
+        # 验证运行状态
+        if (Test-NodeExecution) {
+            Write-ColorOutput "Node.js 安装成功且运行正常" -Type OK
+            return $true
+        } else {
+            Write-ColorOutput "winget 安装的 Node.js 无法运行，尝试其他方式..." -Type Warn
+            return $false
+        }
     } catch {
         Write-ColorOutput "winget 安装失败: $_" -Type Error
         return $false
@@ -89,24 +141,43 @@ function Install-ViaChocolatey {
 
     try {
         choco install nodejs-lts -y
-        Write-ColorOutput "Node.js 安装成功" -Type OK
-        return $true
+        
+        # 刷新环境变量
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Start-Sleep -Seconds 2
+
+        # 验证运行状态
+        if (Test-NodeExecution) {
+            Write-ColorOutput "Node.js 安装成功且运行正常" -Type OK
+            return $true
+        } else {
+            Write-ColorOutput "Chocolatey 安装的 Node.js 无法运行" -Type Warn
+            return $false
+        }
     } catch {
         Write-ColorOutput "Chocolatey 安装失败: $_" -Type Error
         return $false
     }
 }
 
-# 下载官方安装包
-# 注意：Node.js 24.x 版本号会更新，请定期检查 https://nodejs.org
-$script:NodeVersion = "24.1.0"
-
+# 下载官方安装包（根据架构自动选择）
 function Install-ViaOfficial {
     Write-ColorOutput "下载官方安装包" -Type Step
 
-    $downloadUrl = "https://nodejs.org/dist/v$script:NodeVersion/node-v$script:NodeVersion-x64.msi"
+    # 检测架构并选择正确的下载链接
+    $arch = $env:PROCESSOR_ARCHITECTURE
+    if ($arch -eq "ARM64") {
+        $msiSuffix = "win-arm64.msi"
+        $archName = "ARM64"
+    } else {
+        $msiSuffix = "win-x64.msi"
+        $archName = "x64"
+    }
+
+    $downloadUrl = "https://nodejs.org/dist/v$script:NodeVersion/node-v$script:NodeVersion-$msiSuffix"
     $installerPath = "$env:TEMP\node-installer.msi"
 
+    Write-ColorOutput "系统架构: $archName" -Type Info
     Write-ColorOutput "下载地址: $downloadUrl" -Type Info
     Write-ColorOutput "正在下载..." -Type Info
 
@@ -122,11 +193,24 @@ function Install-ViaOfficial {
 
     try {
         Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /passive /norestart" -Wait
-        Write-ColorOutput "Node.js 安装完成" -Type OK
+        Write-ColorOutput "安装完成" -Type OK
 
         # 清理
         Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
-        return $true
+
+        # 刷新环境变量
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Start-Sleep -Seconds 2
+
+        # 验证运行状态
+        if (Test-NodeExecution) {
+            Write-ColorOutput "Node.js 安装成功且运行正常" -Type OK
+            return $true
+        } else {
+            Write-ColorOutput "Node.js 安装完成但无法运行" -Type Error
+            Write-ColorOutput "可能存在系统兼容性问题" -Type Info
+            return $false
+        }
     } catch {
         Write-ColorOutput "安装失败: $_" -Type Error
         Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
@@ -136,7 +220,7 @@ function Install-ViaOfficial {
 
 # 验证安装
 function Test-Installation {
-    Write-ColorOutput "验证安装" -Type Step
+    Write-ColorOutput "最终验证" -Type Step
 
     # 刷新环境变量
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -156,7 +240,21 @@ function Test-Installation {
         $major = [int]($version -replace 'v(\d+).*', '$1')
         if ($major -ge 22) {
             Write-ColorOutput "版本满足要求" -Type OK
-            return $true
+            
+            # 测试运行
+            try {
+                $result = node -e "console.log('OK')" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-ColorOutput "Node.js 运行正常" -Type OK
+                    return $true
+                } else {
+                    Write-ColorOutput "Node.js 无法运行" -Type Error
+                    return $false
+                }
+            } catch {
+                Write-ColorOutput "Node.js 运行测试失败" -Type Error
+                return $false
+            }
         } else {
             Write-ColorOutput "版本仍然过低" -Type Error
             return $false
@@ -178,8 +276,14 @@ function Main {
 
     if ($currentMajor -ge 24) {
         Write-ColorOutput "Node.js 24 已安装 ($(node -v))" -Type OK
-        Write-ColorOutput "无需重复安装" -Type Info
-        exit 0
+        
+        # 验证是否能运行
+        if (Test-NodeExecution) {
+            Write-ColorOutput "Node.js 运行正常，无需重复安装" -Type OK
+            exit 0
+        } else {
+            Write-ColorOutput "Node.js 已安装但无法运行，需要重新安装" -Type Warn
+        }
     } elseif ($currentMajor -ge 22) {
         Write-ColorOutput "当前 Node.js 版本: $(node -v)" -Type Info
         Write-ColorOutput "版本满足最低要求，建议升级到 24" -Type Info
@@ -198,7 +302,7 @@ function Main {
     Write-Host "请选择安装方式：" -ForegroundColor Yellow
     Write-Host "  1) winget (推荐)"
     Write-Host "  2) Chocolatey"
-    Write-Host "  3) 官方安装包"
+    Write-Host "  3) 官方安装包 (自动适配架构)"
     Write-Host ""
 
     $choice = Read-Host "请输入选项 (1-3)"
@@ -215,12 +319,20 @@ function Main {
         }
     }
 
+    # 如果第一种方式失败，尝试其他方式
     if (-not $success) {
-        Write-ColorOutput "安装失败，请尝试其他方式" -Type Error
+        Write-Host ""
+        Write-ColorOutput "第一种方式安装失败，尝试使用官方安装包..." -Type Warn
+        $success = Install-ViaOfficial
+    }
+
+    if (-not $success) {
+        Write-ColorOutput "所有安装方式都失败了" -Type Error
+        Write-ColorOutput "请手动下载安装: https://nodejs.org" -Type Info
         exit 1
     }
 
-    # 验证安装
+    # 最终验证
     $installed = Test-Installation
 
     Write-Host ""
