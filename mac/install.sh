@@ -314,17 +314,9 @@ install_node() {
         print_ok "Homebrew 安装成功"
     fi
 
-    # 只有在 GitHub 可达时才更新 Homebrew（带超时保护）
-    if [ "$NEED_GIT_MIRROR" = false ]; then
-        print_info "正在更新 Homebrew (最多等待 60 秒)..."
-        if run_with_timeout 60 brew update 2>&1; then
-            print_ok "Homebrew 更新成功"
-        else
-            print_warn "Homebrew 更新超时或失败，尝试继续..."
-        fi
-    else
-        print_info "跳过 Homebrew 更新 (GitHub 不通，直接尝试安装)"
-    fi
+    # 跳过 Homebrew 更新（对小白用户来说经常卡住，且非必须）
+    # 只有 Homebrew 版本过旧导致安装失败时才需要手动 update
+    print_info "跳过 Homebrew 更新 (非必须步骤)"
 
     print_info "正在通过 Homebrew 安装 Node.js..."
     print_info "这可能需要几分钟..."
