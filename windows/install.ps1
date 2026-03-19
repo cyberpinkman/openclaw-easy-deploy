@@ -235,6 +235,11 @@ function Test-Node {
 function Install-Node {
     Write-Step "📦 第 2 步：安装 Node.js $NodeVersion"
 
+    # 检测系统架构
+    $arch = $env:PROCESSOR_ARCHITECTURE
+    $archName = if ($arch -eq "AMD64") { "x64 (64位)" } elseif ($arch -eq "ARM64") { "ARM64" } else { $arch }
+    Write-Info "系统架构: $archName"
+
     $installed = $false
 
     # 方法 1: winget
@@ -249,12 +254,16 @@ function Install-Node {
         }
     }
 
-    # 方法 2: 官方安装包
+    # 方法 2: 官方安装包（根据架构选择）
     if (-not $installed) {
         Write-Info "下载官方安装包..."
 
-        $downloadUrl = "https://nodejs.org/dist/v$NodeVersion/node-v$NodeVersion-x64.msi"
+        # 根据架构选择正确的下载链接
+        $msiSuffix = if ($arch -eq "ARM64") { "-win-arm64" } else { "-x64" }
+        $downloadUrl = "https://nodejs.org/dist/v$NodeVersion/node-v$NodeVersion$msiSuffix.msi"
         $installerPath = "$env:TEMP\node-installer.msi"
+
+        Write-Info "下载地址: $downloadUrl"
 
         try {
             Invoke-WebRequest -Uri $downloadUrl -OutFile $installerPath -UseBasicParsing
@@ -277,7 +286,24 @@ function Install-Node {
         if ($nodeCmd) {
             Write-OK "Node.js 安装成功: $(node -v)"
             Write-OK "npm 版本: $(npm -v)"
-            return $true
+
+            # 测试 Node.js 是否能正常运行
+            try {
+                $testResult = node -e "console.log('OK')" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-OK "Node.js 运行正常"
+                    return $true
+                } else {
+                    Write-Err "Node.js 安装成功但无法运行"
+                    Write-Err "可能存在系统兼容性问题"
+                    Show-NodeInstallHelp
+                    return $false
+                }
+            } catch {
+                Write-Err "Node.js 运行测试失败"
+                Show-NodeInstallHelp
+                return $false
+            }
         } else {
             Write-Warn "Node.js 已安装，但需要重启 PowerShell"
             Write-Info "请关闭此窗口，重新打开 PowerShell 后再运行此脚本"
