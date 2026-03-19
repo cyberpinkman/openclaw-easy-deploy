@@ -159,7 +159,7 @@ ask_yes_no() {
     esac
 }
 
-# 读取用户选择（兼容管道运行）
+# 读取用户选择（兼容管道运行），自动去除空白字符
 read_choice() {
     local prompt="$1"
     local answer
@@ -171,7 +171,49 @@ read_choice() {
         read answer < /dev/tty
     fi
 
+    # 去除前后空白字符
+    answer=$(echo "$answer" | tr -d '[:space:]')
     echo "$answer"
+}
+
+# 读取数字选项（带验证和重试）
+read_number_choice() {
+    local prompt="$1"
+    local min="$2"
+    local max="$3"
+    local default="$4"
+    local max_attempts=5
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        local choice=$(read_choice "$prompt")
+
+        # 空输入，使用默认值
+        if [ -z "$choice" ] && [ -n "$default" ]; then
+            echo "$default"
+            return 0
+        fi
+
+        # 验证是否为数字
+        if [[ "$choice" =~ ^[0-9]+$ ]]; then
+            # 验证范围
+            if [ "$choice" -ge "$min" ] && [ "$choice" -le "$max" ]; then
+                echo "$choice"
+                return 0
+            else
+                print_warn "请输入 $min 到 $max 之间的数字 (当前: $choice)"
+            fi
+        else
+            print_warn "请输入数字，而不是: '$choice'"
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    # 超过重试次数，使用默认值或第一个选项
+    print_warn "已达到最大尝试次数，使用默认选项"
+    echo "${default:-1}"
+    return 1
 }
 
 # 检测系统环境
@@ -264,8 +306,13 @@ install_node() {
         print_ok "Homebrew 安装成功"
     fi
 
-    print_info "正在更新 Homebrew..."
-    brew update 2>&1 || print_warn "Homebrew 更新失败，尝试继续..."
+    # 只有在 GitHub 可达时才更新 Homebrew
+    if [ "$NEED_GIT_MIRROR" = false ]; then
+        print_info "正在更新 Homebrew..."
+        brew update 2>&1 || print_warn "Homebrew 更新失败，尝试继续..."
+    else
+        print_info "跳过 Homebrew 更新 (GitHub 不通，直接尝试安装)"
+    fi
 
     print_info "正在通过 Homebrew 安装 Node.js..."
     print_info "这可能需要几分钟..."
@@ -364,7 +411,7 @@ configure_git_mirror() {
     echo ""
     echo -e "${YELLOW}你无法直接连接 GitHub，需要配置镜像源${NC}"
     echo ""
-    echo "请选择镜像源："
+    echo -e "${CYAN}请选择镜像源 (直接输入数字即可)：${NC}"
     echo ""
 
     for i in "${!MIRROR_NAMES[@]}"; do
@@ -372,34 +419,32 @@ configure_git_mirror() {
     done
 
     echo ""
+    echo -e "${BLUE}提示: 输入 1、2 或 3，然后按 Enter${NC}"
+    echo ""
 
-    local choice=$(read_choice "请输入选项 (1-${#MIRROR_NAMES[@]}): ")
+    local choice=$(read_number_choice "请选择 [1-3，默认1]: " 1 ${#MIRROR_NAMES[@]} 1)
 
     local idx=$((choice-1))
+    local mirror_url="${MIRROR_URLS[$idx]}"
 
-    if [ "$choice" -ge 1 ] && [ "$choice" -le ${#MIRROR_NAMES[@]} ]; then
-        local mirror_url="${MIRROR_URLS[$idx]}"
-        print_info "配置镜像: $mirror_url"
+    print_info "你选择了: ${MIRROR_NAMES[$idx]}"
+    print_info "配置镜像: $mirror_url"
 
-        # 清除旧配置
-        for m in "${MIRROR_URLS[@]}"; do
-            git config --global --unset url."$m/github.com/".insteadOf 2>/dev/null
-        done
+    # 清除旧配置
+    for m in "${MIRROR_URLS[@]}"; do
+        git config --global --unset url."$m/github.com/".insteadOf 2>/dev/null
+    done
 
-        # 设置新配置
-        git config --global url."$mirror_url/github.com/".insteadOf "https://github.com/"
+    # 设置新配置
+    git config --global url."$mirror_url/github.com/".insteadOf "https://github.com/"
 
-        # 测试
-        print_info "测试镜像连接..."
-        if run_with_timeout 15 git ls-remote https://github.com &> /dev/null; then
-            print_ok "镜像配置成功"
-            return 0
-        else
-            print_error "镜像连接失败，请尝试其他镜像"
-            return 1
-        fi
+    # 测试
+    print_info "测试镜像连接..."
+    if run_with_timeout 15 git ls-remote https://github.com &> /dev/null; then
+        print_ok "镜像配置成功"
+        return 0
     else
-        print_error "无效选项"
+        print_error "镜像连接失败，请尝试其他镜像"
         return 1
     fi
 }
@@ -429,7 +474,7 @@ check_openclaw() {
 # 选择 npm 源
 select_npm_registry() {
     echo ""
-    echo "请选择 npm 源："
+    echo -e "${CYAN}请选择 npm 源 (直接输入数字即可)：${NC}"
     echo ""
 
     for i in "${!NPM_NAMES[@]}"; do
@@ -437,18 +482,17 @@ select_npm_registry() {
     done
 
     echo ""
+    echo -e "${BLUE}提示: 输入 1、2 或 3，然后按 Enter${NC}"
+    echo ""
 
-    local choice=$(read_choice "请输入选项 (1-${#NPM_NAMES[@]}): ")
+    local choice=$(read_number_choice "请选择 [1-3，默认1]: " 1 ${#NPM_NAMES[@]} 1)
 
     local idx=$((choice-1))
+    local registry="${NPM_URLS[$idx]}"
 
-    if [ "$choice" -ge 1 ] && [ "$choice" -le ${#NPM_NAMES[@]} ]; then
-        local registry="${NPM_URLS[$idx]}"
-        npm config set registry "$registry"
-        print_ok "已设置: $registry"
-    else
-        print_warn "无效选项，使用默认源"
-    fi
+    print_info "你选择了: ${NPM_NAMES[$idx]}"
+    npm config set registry "$registry"
+    print_ok "已设置: $registry"
 }
 
 # 安装 OpenClaw
