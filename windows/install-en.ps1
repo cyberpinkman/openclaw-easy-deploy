@@ -279,9 +279,13 @@ function Install-OpenClaw {
     if ($ocCmd) { Write-Info "Removing old version..."; npm uninstall -g openclaw 2>$null }
 
     Write-Info "Installing, please wait..."
+    Write-Info "This may take a few minutes..."
     Write-Host ""
+
     $env:SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
-    $result = npm install -g openclaw@latest 2>&1
+
+    # Run npm install directly so user can see output
+    npm install -g openclaw@latest
 
     if ($LASTEXITCODE -eq 0) {
         Refresh-Path; Start-Sleep -Seconds 2
@@ -290,9 +294,14 @@ function Install-OpenClaw {
         Write-Warn "Installed, restart PowerShell to use"
         return $true
     }
-    Write-Err "OpenClaw installation failed"
+
+    Write-Host ""
+    Write-Err "OpenClaw installation failed (exit code: $LASTEXITCODE)"
     Write-Host ""
     Write-Host "Try: npm install -g openclaw" -ForegroundColor Yellow
+    Write-Host ""
+    Read-Host "Press Enter to exit..."
+
     return $false
 }
 

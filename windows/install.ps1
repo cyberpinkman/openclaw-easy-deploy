@@ -528,12 +528,14 @@ function Install-OpenClaw {
     }
 
     Write-Info "正在安装，请耐心等待..."
+    Write-Info "这可能需要几分钟..."
     Write-Host ""
 
     # 设置环境变量
     $env:SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
 
-    $result = npm install -g openclaw@latest 2>&1
+    # 直接运行 npm install，让用户看到输出
+    npm install -g openclaw@latest
 
     if ($LASTEXITCODE -eq 0) {
         # 刷新环境变量
@@ -551,8 +553,15 @@ function Install-OpenClaw {
         }
     }
 
-    Write-Err "小龙虾安装失败"
+    # 安装失败，显示错误
+    Write-Host ""
+    Write-Err "小龙虾安装失败 (exit code: $LASTEXITCODE)"
     Show-OpenClawInstallHelp
+
+    # 暂停让用户看到错误
+    Write-Host ""
+    Read-Host "按 Enter 键退出..."
+
     return $false
 }
 
