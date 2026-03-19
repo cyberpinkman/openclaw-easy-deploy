@@ -286,6 +286,7 @@ install_node() {
     # 检测 macOS 版本，决定使用哪个 Node.js 版本
     local macos_version=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
     local macos_major=$(echo "$macos_version" | cut -d. -f1)
+    local macos_minor=$(echo "$macos_version" | cut -d. -f2)
     
     # 如果已安装但无法运行，先卸载
     if command -v node &> /dev/null; then
@@ -300,9 +301,20 @@ install_node() {
         fi
     fi
     
-    # Node.js 24.x 需要 macOS 12+ (Monterey)
-    # Node.js 22.x 支持 macOS 10.15+ (Catalina)
-    if [ "$macos_major" -lt 12 ]; then
+    # Node.js 版本兼容性：
+    # - Node.js 24.x: macOS 12+ (Monterey)
+    # - Node.js 22.x: macOS 10.15+ (Catalina)
+    # - Node.js 18.x: macOS 10.13+ (High Sierra) - 最后支持旧系统的LTS
+    
+    if [ "$macos_major" -lt 10 ] || ([ "$macos_major" -eq 10 ] && [ "$macos_minor" -lt 15 ]); then
+        # macOS 10.14 或更早
+        print_step "📦 第 2 步：安装 Node.js 18.x LTS"
+        print_warn "检测到 macOS $macos_version，Node.js 22+ 需要 macOS 10.15+"
+        print_info "将安装 Node.js 18.x LTS（最后一个支持你系统的版本）"
+        print_info "⚠ Node.js 18 将于 2025年4月结束支持，建议升级 macOS"
+        NODE_VERSION="18.20.8"
+    elif [ "$macos_major" -lt 12 ]; then
+        # macOS 10.15-11.x
         print_step "📦 第 2 步：安装 Node.js 22.x LTS"
         print_warn "检测到 macOS $macos_version，Node.js 24.x 需要 macOS 12+"
         print_info "将安装 Node.js 22.x LTS（兼容你的系统）"

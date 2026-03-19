@@ -28,10 +28,23 @@ fi
 # 检测 macOS 版本
 MACOS_VERSION=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
 MACOS_MAJOR=$(echo "$MACOS_VERSION" | cut -d. -f1)
+MACOS_MINOR=$(echo "$MACOS_VERSION" | cut -d. -f2)
 
-# Node.js 24.x 需要 macOS 12+，旧系统使用 22.x LTS
-if [ "$MACOS_MAJOR" -lt 12 ]; then
+# Node.js 版本兼容性：
+# - Node.js 24.x: macOS 12+ (Monterey)
+# - Node.js 22.x: macOS 10.15+ (Catalina)
+# - Node.js 18.x: macOS 10.13+ (High Sierra) - 最后支持旧系统的LTS
+if [ "$MACOS_MAJOR" -lt 10 ] || ([ "$MACOS_MAJOR" -eq 10 ] && [ "$MACOS_MINOR" -lt 15 ]); then
+    # macOS 10.14 或更早
+    NODE_VERSION="18.20.8"
+    COMPAT_MODE="old"
+elif [ "$MACOS_MAJOR" -lt 12 ]; then
+    # macOS 10.15-11.x
     NODE_VERSION="22.14.0"
+    COMPAT_MODE="medium"
+else
+    NODE_VERSION="24.14.0"
+    COMPAT_MODE="modern"
 fi
 
 # 打印函数
@@ -42,9 +55,13 @@ print_header() {
     echo ""
     echo -e "${BLUE}系统架构: ${ARCH_NAME}${NC}"
     echo -e "${BLUE}macOS 版本: ${MACOS_VERSION}${NC}"
-    if [ "$MACOS_MAJOR" -lt 12 ]; then
+    if [ "$COMPAT_MODE" = "old" ]; then
+        echo -e "${YELLOW}Node.js 22+ 需要 macOS 10.15+，将安装 18.x LTS${NC}"
+        echo -e "${YELLOW}⚠ Node.js 18 将于 2025年4月结束支持，建议升级 macOS${NC}"
+    elif [ "$COMPAT_MODE" = "medium" ]; then
         echo -e "${YELLOW}Node.js 24.x 需要 macOS 12+，将安装 22.x LTS${NC}"
     fi
+    echo -e "${BLUE}将安装: Node.js ${NODE_VERSION}${NC}"
     echo ""
 }
 
@@ -304,21 +321,23 @@ main() {
     # 检查当前版本
     local current_major=$(check_current_node)
 
-    if [ $current_major -ge 22 ]; then
+    if [ $current_major -ge 18 ]; then
         print_info "当前 Node.js 版本: $(node -v 2>/dev/null || echo '未知')"
         
         # 验证是否能运行
         if node -e "console.log('OK')" 2>/dev/null; then
             print_ok "Node.js 运行正常"
             
-            if [ $current_major -ge 24 ]; then
+            # 检查是否满足最低要求
+            local required_major=$(echo "$NODE_VERSION" | cut -d. -f1)
+            if [ $current_major -ge $required_major ]; then
                 print_ok "版本满足要求，无需重复安装"
                 exit 0
             fi
             
-            print_info "版本满足最低要求，建议升级到 24"
+            print_info "建议升级到 Node.js ${NODE_VERSION}"
             echo ""
-            safe_read "是否升级到 Node.js 24? (y/n): "
+            safe_read "是否升级? (y/n): "
             if [[ $choice != "y" && $choice != "Y" ]]; then
                 print_info "跳过安装"
                 exit 0
