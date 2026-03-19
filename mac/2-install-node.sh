@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Node.js 版本
-NODE_VERSION="24.1.0"
+NODE_VERSION="24.14.0"
 
 # 检测系统架构
 ARCH=$(uname -m)
@@ -156,13 +156,12 @@ install_via_homebrew() {
     fi
 }
 
-# 使用官方安装包安装（根据架构自动选择）
+# 使用官方安装包安装（.pkg 是通用二进制，不需要架构后缀）
 install_via_official() {
     print_step "下载官方安装包"
 
-    # 根据架构选择正确的下载链接
-    local pkg_suffix="${NODE_ARCH}.pkg"
-    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${pkg_suffix}"
+    # .pkg 是通用安装包，支持 Intel 和 Apple Silicon
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
 
     print_info "系统架构: $ARCH_NAME"
     print_info "下载地址: $download_url"

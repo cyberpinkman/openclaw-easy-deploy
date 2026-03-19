@@ -28,7 +28,7 @@ NC='\033[0m'
 SCRIPT_VERSION="1.0.1"
 
 # Node.js 目标版本
-NODE_VERSION="24.1.0"
+NODE_VERSION="24.14.0"
 
 # 镜像源列表
 MIRROR_URLS=(
@@ -279,14 +279,11 @@ install_node() {
     # 检测系统架构
     local arch=$(uname -m)
     local arch_name="未知"
-    local pkg_suffix=""
 
     if [ "$arch" = "arm64" ]; then
         arch_name="Apple Silicon (M系列芯片)"
-        pkg_suffix="-darwin-arm64"
     else
         arch_name="Intel (x86_64)"
-        pkg_suffix="-darwin-x64"
     fi
 
     print_info "系统架构: $arch_name"
@@ -350,8 +347,8 @@ install_node() {
     # Homebrew 失败或架构不匹配，尝试官方安装包
     print_warn "Homebrew 安装失败，尝试使用官方安装包..."
 
-    # 根据架构选择正确的下载链接
-    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}${pkg_suffix}.pkg"
+    # Node.js .pkg 是通用安装包，支持 Intel 和 Apple Silicon
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
     local tmp_file="/tmp/node-installer.pkg"
 
     print_info "下载地址: $download_url"

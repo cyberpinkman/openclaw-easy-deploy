@@ -42,7 +42,7 @@ function Print-Header {
 }
 
 # Node.js 版本
-$script:NodeVersion = "24.1.0"
+$script:NodeVersion = "24.14.0"
 
 # 获取当前 Node.js 版本
 function Get-CurrentNodeVersion {
@@ -167,10 +167,10 @@ function Install-ViaOfficial {
     # 检测架构并选择正确的下载链接
     $arch = $env:PROCESSOR_ARCHITECTURE
     if ($arch -eq "ARM64") {
-        $msiSuffix = "win-arm64.msi"
+        $msiSuffix = "arm64.msi"
         $archName = "ARM64"
     } else {
-        $msiSuffix = "win-x64.msi"
+        $msiSuffix = "x64.msi"
         $archName = "x64"
     }
 

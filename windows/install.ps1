@@ -9,7 +9,7 @@ $ErrorActionPreference = "Continue"
 $ScriptVersion = "1.0.0"
 
 # Node.js 目标版本
-$NodeVersion = "24.1.0"
+$NodeVersion = "24.14.0"
 
 # 镜像源列表
 $GitMirrors = @{
@@ -259,7 +259,7 @@ function Install-Node {
         Write-Info "下载官方安装包..."
 
         # 根据架构选择正确的下载链接
-        $msiSuffix = if ($arch -eq "ARM64") { "-win-arm64" } else { "-x64" }
+        $msiSuffix = if ($arch -eq "ARM64") { "-arm64" } else { "-x64" }
         $downloadUrl = "https://nodejs.org/dist/v$NodeVersion/node-v$NodeVersion$msiSuffix.msi"
         $installerPath = "$env:TEMP\node-installer.msi"
 
