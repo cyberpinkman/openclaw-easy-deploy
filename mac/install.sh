@@ -255,6 +255,30 @@ detect_environment() {
     fi
     print_ok "系统版本兼容 (macOS $os_version >= 10.15)"
 
+    # ========== Xcode Command Line Tools 检查 ==========
+    # 升级 macOS 后经常损坏，导致 npm install 失败
+    print_info "检查 Xcode Command Line Tools..."
+    if ! xcode-select -p &> /dev/null; then
+        print_warn "Xcode Command Line Tools 未安装"
+        print_info "正在安装..."
+        xcode-select --install 2>/dev/null
+        echo ""
+        print_info "请在弹出的窗口中完成安装，然后重新运行此脚本"
+        return 1
+    fi
+    
+    # 检查 xcrun 是否可用（升级 macOS 后经常损坏）
+    if ! xcrun --version &> /dev/null; then
+        print_warn "Xcode Command Line Tools 损坏（升级 macOS 后常见问题）"
+        print_info "正在修复..."
+        sudo xcode-select --reset 2>/dev/null
+        sudo xcode-select --install 2>/dev/null
+        echo ""
+        print_info "请在弹出的窗口中完成安装，然后重新运行此脚本"
+        return 1
+    fi
+    print_ok "Xcode Command Line Tools 正常"
+
     # 内存检查
     local total_mem=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
     if [ -z "$total_mem" ] || [ "$total_mem" = "0" ]; then
