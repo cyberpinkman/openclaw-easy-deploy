@@ -276,6 +276,21 @@ check_node() {
 install_node() {
     print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
 
+    # 检测系统架构
+    local arch=$(uname -m)
+    local arch_name="未知"
+    local pkg_suffix=""
+
+    if [ "$arch" = "arm64" ]; then
+        arch_name="Apple Silicon (M系列芯片)"
+        pkg_suffix="-darwin-arm64"
+    else
+        arch_name="Intel (x86_64)"
+        pkg_suffix="-darwin-x64"
+    fi
+
+    print_info "系统架构: $arch_name"
+
     # 检查 Homebrew
     if ! command -v brew &> /dev/null; then
         print_info "Homebrew 未安装，正在安装..."
@@ -290,7 +305,7 @@ install_node() {
         fi
 
         # 添加到 PATH
-        if [[ $(uname -m) == "arm64" ]]; then
+        if [[ "$arch" == "arm64" ]]; then
             eval "$(/opt/homebrew/bin/brew shellenv)"
         else
             eval "$(/usr/local/bin/brew shellenv)"
@@ -311,19 +326,35 @@ install_node() {
     print_info "这可能需要几分钟..."
 
     if brew install node 2>&1; then
-        # 验证安装
+        # 验证安装和架构兼容性
         if command -v node &> /dev/null; then
-            local version=$(node -v)
-            print_ok "Node.js 安装成功: $version"
-            print_ok "npm 版本: $(npm -v)"
-            return 0
+            local node_path=$(which node)
+            local node_arch=$(file "$node_path" 2>/dev/null | grep -o 'arm64\|x86_64' | head -1)
+            
+            # 检查架构是否匹配
+            if [[ "$node_arch" == *"arm64"* && "$arch" == "arm64" ]] || [[ "$node_arch" == *"x86_64"* && "$arch" != "arm64" ]]; then
+                local version=$(node -v)
+                print_ok "Node.js 安装成功: $version"
+                print_ok "npm 版本: $(npm -v)"
+                # 测试 Node.js 是否能正常运行
+                if node -e "console.log('OK')" &> /dev/null; then
+                    print_ok "Node.js 运行正常"
+                    return 0
+                else
+                    print_warn "Node.js 已安装但无法运行，可能是架构不匹配"
+                    print_info "尝试使用官方安装包..."
+                fi
+            else
+                print_warn "检测到架构不匹配，尝试使用官方安装包..."
+            fi
         fi
     fi
 
-    # Homebrew 失败，尝试官方安装包
+    # Homebrew 失败或架构不匹配，尝试官方安装包
     print_warn "Homebrew 安装失败，尝试使用官方安装包..."
 
-    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
+    # 根据架构选择正确的下载链接
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}${pkg_suffix}.pkg"
     local tmp_file="/tmp/node-installer.pkg"
 
     print_info "下载地址: $download_url"
@@ -334,11 +365,23 @@ install_node() {
         if sudo installer -pkg "$tmp_file" -target / 2>&1; then
             rm -f "$tmp_file"
             # 刷新 PATH
-            export PATH="/usr/local/bin:$PATH"
+            export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+            
             if command -v node &> /dev/null; then
-                print_ok "Node.js 安装成功: $(node -v)"
+                local version=$(node -v)
+                print_ok "Node.js 安装成功: $version"
                 print_ok "npm 版本: $(npm -v)"
-                return 0
+                
+                # 测试 Node.js 是否能正常运行
+                if node -e "console.log('OK')" &> /dev/null 2>&1; then
+                    print_ok "Node.js 运行正常"
+                    return 0
+                else
+                    print_error "Node.js 安装成功但无法运行"
+                    print_error "可能存在系统兼容性问题，请联系技术支持"
+                    show_node_install_help
+                    return 1
+                fi
             fi
         fi
         rm -f "$tmp_file"
