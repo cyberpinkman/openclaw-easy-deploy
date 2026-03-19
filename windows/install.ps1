@@ -1,0 +1,589 @@
+# ============================================
+# 🦞 小龙虾一键安装脚本 (Windows)
+# 用户只需要运行这一条命令即可完成所有安装
+# ============================================
+
+$ErrorActionPreference = "Continue"
+
+# 脚本版本
+$ScriptVersion = "1.0.0"
+
+# Node.js 目标版本
+$NodeVersion = "24.1.0"
+
+# 镜像源列表
+$GitMirrors = @{
+    "1" = "https://gitclone.com"
+    "2" = "https://mirror.ghproxy.com"
+    "3" = "https://ghproxy.net"
+}
+
+$MirrorNames = @(
+    "gitclone.com",
+    "mirror.ghproxy.com",
+    "ghproxy.net"
+)
+
+# npm 源列表
+$NpmRegistries = @{
+    "1" = "https://registry.npmmirror.com"
+    "2" = "https://mirrors.cloud.tencent.com/npm/"
+    "3" = "https://registry.npmjs.org"
+}
+
+$NpmNames = @(
+    "淘宝源 (推荐)",
+    "腾讯源",
+    "官方源 (需要代理)"
+)
+
+# 状态追踪
+$script:NeedNode = $false
+$script:NeedGitMirror = $false
+$script:NeedOpenClaw = $false
+
+# 颜色函数
+function Write-Header {
+    Clear-Host
+    Write-Host ""
+    Write-Host "  ╔═══════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "  ║                                           ║" -ForegroundColor Cyan
+    Write-Host "  ║    🦞 小龙虾 OpenClaw 一键安装脚本        ║" -ForegroundColor Cyan
+    Write-Host "  ║                                           ║" -ForegroundColor Cyan
+    Write-Host "  ╚═══════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+function Write-Step {
+    param([string]$Message)
+    Write-Host ""
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+    Write-Host "  $Message" -ForegroundColor Yellow
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+}
+
+function Write-Substep {
+    param([string]$Message)
+    Write-Host ""
+    Write-Host "▶ $Message" -ForegroundColor Cyan
+}
+
+function Write-OK {
+    param([string]$Message)
+    Write-Host "  ✓ $Message" -ForegroundColor Green
+}
+
+function Write-Err {
+    param([string]$Message)
+    Write-Host "  ✗ $Message" -ForegroundColor Red
+}
+
+function Write-Warn {
+    param([string]$Message)
+    Write-Host "  ⚠ $Message" -ForegroundColor Yellow
+}
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host "  ℹ $Message" -ForegroundColor Cyan
+}
+
+function Write-SuccessBox {
+    Write-Host ""
+    Write-Host "  ╔═══════════════════════════════════════════╗" -ForegroundColor Green
+    Write-Host "  ║                                           ║" -ForegroundColor Green
+    Write-Host "  ║           ✅ 安装完成！                   ║" -ForegroundColor Green
+    Write-Host "  ║                                           ║" -ForegroundColor Green
+    Write-Host "  ╚═══════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host ""
+}
+
+function Write-FailBox {
+    param([string]$Reason)
+    Write-Host ""
+    Write-Host "  ╔═══════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "  ║                                           ║" -ForegroundColor Red
+    Write-Host "  ║           ❌ 安装失败                     ║" -ForegroundColor Red
+    Write-Host "  ║                                           ║" -ForegroundColor Red
+    Write-Host "  ╚═══════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  失败原因: $Reason" -ForegroundColor Red
+    Write-Host ""
+}
+
+function Wait-Continue {
+    param([string]$Message = "按 Enter 继续...")
+    Write-Host ""
+    Read-Host $Message | Out-Null
+}
+
+function Refresh-Path {
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+}
+
+# 检测系统环境
+function Test-Environment {
+    Write-Step "📋 第 1 步：检测系统环境"
+
+    # Windows 版本
+    $osInfo = Get-CimInstance Win32_OperatingSystem
+    Write-Info "Windows: $($osInfo.Caption)"
+
+    # 内存
+    $totalMem = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
+    $memGB = [math]::Round($totalMem / 1GB, 2)
+
+    if ($memGB -lt 4) {
+        Write-Err "内存过低 (${memGB}GB)，建议至少 4GB"
+        return $false
+    }
+    Write-OK "内存: ${memGB}GB"
+
+    # 硬盘空间
+    $freeSpace = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+    $freeGB = [math]::Round($freeSpace / 1GB, 2)
+
+    if ($freeGB -lt 2) {
+        Write-Err "硬盘空间不足 (${freeGB}GB)，建议至少 2GB"
+        return $false
+    }
+    Write-OK "可用空间: ${freeGB}GB"
+
+    # 检查是否以管理员运行
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) {
+        Write-Warn "建议以管理员身份运行"
+        Write-Info "某些安装步骤可能需要管理员权限"
+    }
+
+    return $true
+}
+
+# 检测 Node.js
+function Test-Node {
+    Write-Substep "检测 Node.js"
+
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        Write-Warn "未安装 Node.js"
+        $script:NeedNode = $true
+        return $false
+    }
+
+    $version = (node -v 2>$null)
+    $major = [int]($version -replace 'v(\d+).*', '$1')
+
+    Write-Info "已安装: $version"
+
+    if ($major -lt 22) {
+        Write-Warn "版本过低 (需要 22+)，需要升级"
+        $script:NeedNode = $true
+        return $false
+    }
+
+    Write-OK "版本满足要求"
+    return $true
+}
+
+# 安装 Node.js
+function Install-Node {
+    Write-Step "📦 第 2 步：安装 Node.js $NodeVersion"
+
+    $installed = $false
+
+    # 方法 1: winget
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        Write-Info "使用 winget 安装 Node.js 24..."
+        try {
+            winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements
+            $installed = $true
+        } catch {
+            Write-Warn "winget 安装失败: $_"
+        }
+    }
+
+    # 方法 2: 官方安装包
+    if (-not $installed) {
+        Write-Info "下载官方安装包..."
+
+        $downloadUrl = "https://nodejs.org/dist/v$NodeVersion/node-v$NodeVersion-x64.msi"
+        $installerPath = "$env:TEMP\node-installer.msi"
+
+        try {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $installerPath -UseBasicParsing
+            Write-Info "正在安装..."
+            Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /passive /norestart" -Wait
+            Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+            $installed = $true
+        } catch {
+            Write-Err "下载失败: $_"
+            Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if ($installed) {
+        # 刷新环境变量
+        Refresh-Path
+        Start-Sleep -Seconds 2
+
+        $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+        if ($nodeCmd) {
+            Write-OK "Node.js 安装成功: $(node -v)"
+            Write-OK "npm 版本: $(npm -v)"
+            return $true
+        } else {
+            Write-Warn "Node.js 已安装，但需要重启 PowerShell"
+            Write-Info "请关闭此窗口，重新打开 PowerShell 后再运行此脚本"
+            return $false
+        }
+    }
+
+    Write-Err "Node.js 安装失败"
+    Show-NodeInstallHelp
+    return $false
+}
+
+# 显示 Node.js 安装帮助
+function Show-NodeInstallHelp {
+    Write-Host ""
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+    Write-Host "  手动安装 Node.js 的方法：" -ForegroundColor Yellow
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  方法 1: 下载官方安装包"
+    Write-Host "    访问: https://nodejs.org"
+    Write-Host "    下载 LTS 版本并安装"
+    Write-Host ""
+    Write-Host "  方法 2: 使用 Chocolatey"
+    Write-Host "    choco install nodejs-lts"
+    Write-Host ""
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+}
+
+# 检测 Git
+function Test-Git {
+    Write-Substep "检测 Git 和 GitHub 连接"
+
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $gitCmd) {
+        Write-Warn "未安装 Git，正在安装..."
+
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            try {
+                winget install Git.Git --accept-source-agreements --accept-package-agreements
+                Refresh-Path
+            } catch {
+                Write-Err "Git 安装失败"
+                Write-Info "请手动安装: https://git-scm.com/download/win"
+                return $false
+            }
+        } else {
+            Write-Err "Git 安装失败"
+            Write-Info "请手动安装: https://git-scm.com/download/win"
+            return $false
+        }
+    }
+
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) {
+        $version = (git --version 2>$null) -replace 'git version (.*)', '$1'
+        Write-OK "Git: $version"
+    }
+
+    # 测试 GitHub 连接
+    Write-Info "测试 GitHub 连接..."
+    try {
+        $null = Invoke-WebRequest -Uri "https://github.com" -TimeoutSec 15 -UseBasicParsing
+        Write-OK "可以连接 GitHub"
+        return $true
+    } catch {
+        Write-Warn "无法连接 GitHub"
+        $script:NeedGitMirror = $true
+        return $false
+    }
+}
+
+# 配置 Git 镜像
+function Set-GitMirror {
+    Write-Step "🌐 第 3 步：配置 GitHub 镜像源"
+
+    Write-Host ""
+    Write-Host "你无法直接连接 GitHub，需要配置镜像源" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "请选择镜像源："
+    Write-Host ""
+
+    for ($i = 0; $i -lt $MirrorNames.Count; $i++) {
+        Write-Host "  $($i+1)) $($MirrorNames[$i])"
+    }
+
+    Write-Host ""
+    $choice = Read-Host "请输入选项 (1-$($MirrorNames.Count))"
+
+    if ($choice -in @("1", "2", "3")) {
+        $mirrorUrl = $GitMirrors[$choice]
+        Write-Info "配置镜像: $mirrorUrl"
+
+        # 清除旧配置
+        foreach ($key in $GitMirrors.Keys) {
+            git config --global --unset url."$($GitMirrors[$key])/github.com/".insteadOf 2>$null
+        }
+
+        # 设置新配置
+        git config --global url."$mirrorUrl/github.com/".insteadOf "https://github.com/"
+
+        Write-OK "镜像配置成功"
+        return $true
+    } else {
+        Write-Err "无效选项"
+        return $false
+    }
+}
+
+# 检测 OpenClaw
+function Test-OpenClaw {
+    Write-Substep "检测小龙虾 (OpenClaw)"
+
+    $ocCmd = Get-Command openclaw -ErrorAction SilentlyContinue
+    if ($ocCmd) {
+        $version = (openclaw --version 2>$null)
+        Write-OK "已安装: $version"
+
+        Write-Host ""
+        $choice = Read-Host "是否重新安装/更新? (y/n)"
+        if ($choice -eq "y" -or $choice -eq "Y") {
+            $script:NeedOpenClaw = $true
+            return $false
+        }
+
+        return $true
+    } else {
+        Write-Warn "未安装小龙虾"
+        $script:NeedOpenClaw = $true
+        return $false
+    }
+}
+
+# 选择 npm 源
+function Select-NpmRegistry {
+    Write-Host ""
+    Write-Host "请选择 npm 源："
+    Write-Host ""
+
+    for ($i = 0; $i -lt $NpmNames.Count; $i++) {
+        Write-Host "  $($i+1)) $($NpmNames[$i])"
+    }
+
+    Write-Host ""
+    $choice = Read-Host "请输入选项 (1-$($NpmNames.Count))"
+
+    if ($choice -in @("1", "2", "3")) {
+        $registry = $NpmRegistries[$choice]
+        npm config set registry $registry
+        Write-OK "已设置: $registry"
+    } else {
+        Write-Warn "无效选项，使用默认源"
+    }
+}
+
+# 安装 OpenClaw
+function Install-OpenClaw {
+    Write-Step "🦞 第 4 步：安装小龙虾 (OpenClaw)"
+
+    # 先选择 npm 源
+    Select-NpmRegistry
+
+    # 如果已有安装，先卸载
+    $ocCmd = Get-Command openclaw -ErrorAction SilentlyContinue
+    if ($ocCmd) {
+        Write-Info "卸载旧版本..."
+        npm uninstall -g openclaw 2>$null
+    }
+
+    Write-Info "正在安装，请耐心等待..."
+    Write-Host ""
+
+    # 设置环境变量
+    $env:SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
+
+    $result = npm install -g openclaw@latest 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
+        # 刷新环境变量
+        Refresh-Path
+        Start-Sleep -Seconds 2
+
+        $ocCmd = Get-Command openclaw -ErrorAction SilentlyContinue
+        if ($ocCmd) {
+            Write-OK "小龙虾安装成功: $(openclaw --version)"
+            return $true
+        } else {
+            Write-Warn "安装成功，但需要重启 PowerShell"
+            Write-Info "请关闭此窗口，重新打开 PowerShell"
+            return $true
+        }
+    }
+
+    Write-Err "小龙虾安装失败"
+    Show-OpenClawInstallHelp
+    return $false
+}
+
+# 显示 OpenClaw 安装帮助
+function Show-OpenClawInstallHelp {
+    Write-Host ""
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+    Write-Host "  安装失败，请尝试：" -ForegroundColor Yellow
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. 检查网络连接"
+    Write-Host "  2. 尝试更换 npm 源后重新运行此脚本"
+    Write-Host "  3. 手动安装: npm install -g openclaw"
+    Write-Host ""
+    Write-Host "  如需帮助，访问: https://docs.openclaw.ai"
+    Write-Host ""
+    Write-Host "────────────────────────────────────────" -ForegroundColor Yellow
+}
+
+# 运行配置向导
+function Start-Onboarding {
+    Write-Step "🎯 第 5 步：配置小龙虾"
+
+    Write-Host ""
+    Write-Host "现在需要配置小龙虾的 AI 模型和消息通道" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "配置向导会帮助你："
+    Write-Host "  • 设置 AI 模型提供商（需要 API Key）"
+    Write-Host "  • 配置消息通道（WhatsApp、Telegram、Discord 等）"
+    Write-Host "  • 安装后台服务（可选）"
+    Write-Host ""
+
+    $choice = Read-Host "是否启动配置向导? (y/n)"
+
+    if ($choice -eq "y" -or $choice -eq "Y") {
+        Write-Info "启动配置向导..."
+        Write-Host ""
+        openclaw onboard --install-daemon
+    } else {
+        Write-Info "跳过配置向导"
+        Write-Info "稍后可以运行 'openclaw onboard' 进行配置"
+    }
+}
+
+# 显示完成信息
+function Show-Complete {
+    Write-SuccessBox
+
+    Write-Host "小龙虾已成功安装！" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "常用命令：" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  openclaw status      查看状态"
+    Write-Host "  openclaw gateway     启动网关"
+    Write-Host "  openclaw dashboard   打开控制面板"
+    Write-Host "  openclaw --help      查看帮助"
+    Write-Host ""
+    Write-Host "下一步：" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. 运行 openclaw gateway 启动网关"
+    Write-Host "  2. 打开浏览器访问 http://127.0.0.1:18789"
+    Write-Host ""
+    Write-Host "文档：" -ForegroundColor Yellow -NoNewline
+    Write-Host " https://docs.openclaw.ai"
+    Write-Host "社区：" -ForegroundColor Yellow -NoNewline
+    Write-Host " https://discord.com/invite/clawd"
+    Write-Host ""
+}
+
+# 显示失败信息
+function Show-Failed {
+    param([string]$Step)
+
+    Write-FailBox -Reason $Step
+
+    Write-Host "解决后重新运行：" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex"
+    Write-Host ""
+    Write-Host "或使用 GitHub：" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex"
+    Write-Host ""
+}
+
+# 主函数
+function Main {
+    Write-Header
+
+    Write-Host "这个脚本会帮你完成所有安装，你只需要：" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1. 看着屏幕"
+    Write-Host "  2. 偶尔按一下 Enter 或输入 y/n"
+    Write-Host "  3. 等待完成"
+    Write-Host ""
+
+    Wait-Continue "准备好了吗？按 Enter 开始..."
+
+    # 第 1 步：检测环境
+    if (-not (Test-Environment)) {
+        Show-Failed -Step "系统环境不满足要求"
+        exit 1
+    }
+
+    # 检测 Node.js
+    $null = Test-Node
+
+    # 检测 Git
+    $null = Test-Git
+
+    # 检测 OpenClaw
+    $null = Test-OpenClaw
+
+    # 第 2 步：安装 Node.js（如果需要）
+    if ($script:NeedNode) {
+        Write-Host ""
+        $choice = Read-Host "需要安装 Node.js，是否继续? (y/n)"
+        if ($choice -ne "y" -and $choice -ne "Y") {
+            Show-Failed -Step "用户取消安装 Node.js"
+            exit 1
+        }
+
+        if (-not (Install-Node)) {
+            Show-Failed -Step "Node.js 安装失败"
+            exit 1
+        }
+    }
+
+    # 第 3 步：配置镜像（如果需要）
+    if ($script:NeedGitMirror) {
+        Write-Host ""
+        $choice = Read-Host "需要配置 GitHub 镜像源，是否继续? (y/n)"
+        if ($choice -ne "y" -and $choice -ne "Y") {
+            Write-Warn "跳过镜像配置，后续安装可能失败"
+        } else {
+            $null = Set-GitMirror
+        }
+    }
+
+    # 第 4 步：安装 OpenClaw（如果需要）
+    if ($script:NeedOpenClaw) {
+        if (-not (Install-OpenClaw)) {
+            Show-Failed -Step "小龙虾安装失败"
+            exit 1
+        }
+    } else {
+        Write-Step "🦞 小龙虾"
+        Write-OK "已安装，跳过"
+    }
+
+    # 第 5 步：配置向导
+    Start-Onboarding
+
+    # 完成
+    Show-Complete
+}
+
+# 运行
+Main

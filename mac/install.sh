@@ -1,0 +1,568 @@
+#!/bin/bash
+
+# ============================================
+# 🦞 小龙虾一键安装脚本 (macOS)
+# 用户只需要运行这一条命令即可完成所有安装
+# ============================================
+
+# 不使用 set -e，我们自己处理错误
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# 脚本版本
+SCRIPT_VERSION="1.0.0"
+
+# Node.js 目标版本
+NODE_VERSION="24.1.0"
+
+# 镜像源列表
+MIRROR_URLS=(
+    "https://gitclone.com"
+    "https://mirror.ghproxy.com"
+    "https://ghproxy.net"
+)
+
+MIRROR_NAMES=(
+    "gitclone.com"
+    "mirror.ghproxy.com"
+    "ghproxy.net"
+)
+
+# npm 源列表
+NPM_URLS=(
+    "https://registry.npmmirror.com"
+    "https://mirrors.cloud.tencent.com/npm/"
+    "https://registry.npmjs.org"
+)
+
+NPM_NAMES=(
+    "淘宝源 (推荐)"
+    "腾讯源"
+    "官方源 (需要代理)"
+)
+
+# 状态追踪
+NEED_NODE=false
+NEED_GIT_MIRROR=false
+NEED_OPENCLAW=false
+
+# 打印函数
+print_header() {
+    clear
+    echo -e "${CYAN}"
+    echo "  ╔═══════════════════════════════════════════╗"
+    echo "  ║                                           ║"
+    echo "  ║    🦞 小龙虾 OpenClaw 一键安装脚本        ║"
+    echo "  ║                                           ║"
+    echo "  ╚═══════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo ""
+}
+
+print_step() {
+    echo -e "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}  $1${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+print_substep() {
+    echo -e "\n${BLUE}▶ $1${NC}"
+}
+
+print_ok() {
+    echo -e "  ${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "  ${RED}✗${NC} $1"
+}
+
+print_warn() {
+    echo -e "  ${YELLOW}⚠${NC} $1"
+}
+
+print_info() {
+    echo -e "  ${BLUE}ℹ${NC} $1"
+}
+
+print_success_box() {
+    echo ""
+    echo -e "${GREEN}"
+    echo "  ╔═══════════════════════════════════════════╗"
+    echo "  ║                                           ║"
+    echo "  ║           ✅ 安装完成！                   ║"
+    echo "  ║                                           ║"
+    echo "  ╚═══════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+print_fail_box() {
+    echo ""
+    echo -e "${RED}"
+    echo "  ╔═══════════════════════════════════════════╗"
+    echo "  ║                                           ║"
+    echo "  ║           ❌ 安装失败                     ║"
+    echo "  ║                                           ║"
+    echo "  ╚═══════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+# macOS 兼容的 timeout 函数
+run_with_timeout() {
+    local timeout_sec=$1
+    shift
+    perl -e 'alarm shift; exec @ARGV' "$timeout_sec" "$@" 2>/dev/null
+}
+
+# 等待用户确认
+wait_continue() {
+    local msg="${1:-按 Enter 继续...}"
+    echo ""
+    read -p "$msg" dummy
+}
+
+# 检测系统环境
+detect_environment() {
+    print_step "📋 第 1 步：检测系统环境"
+
+    # 系统信息
+    local os_version=$(sw_vers -productVersion 2>/dev/null || echo "未知")
+    local chip=$(uname -m)
+
+    print_info "macOS 版本: $os_version"
+    print_info "芯片: $([ "$chip" = "arm64" ] && echo "Apple Silicon" || echo "Intel")"
+
+    # 内存检查
+    local total_mem=$(sysctl -n hw.memsize 2>/dev/null)
+    local mem_gb=$((total_mem / 1024 / 1024 / 1024))
+
+    if [ $mem_gb -lt 4 ]; then
+        print_error "内存过低 (${mem_gb}GB)，建议至少 4GB"
+        return 1
+    fi
+    print_ok "内存: ${mem_gb}GB"
+
+    # 硬盘空间检查
+    local free_space=$(df -g / 2>/dev/null | awk 'NR==2 {print $4}')
+    if [ "$free_space" -lt 2 ]; then
+        print_error "硬盘空间不足 (${free_space}GB)，建议至少 2GB"
+        return 1
+    fi
+    print_ok "可用空间: ${free_space}GB"
+
+    return 0
+}
+
+# 检测 Node.js
+check_node() {
+    print_substep "检测 Node.js"
+
+    if ! command -v node &> /dev/null; then
+        print_warn "未安装 Node.js"
+        NEED_NODE=true
+        return 1
+    fi
+
+    local version=$(node -v 2>/dev/null)
+    local major=$(echo "$version" | sed 's/v\([0-9]*\).*/\1/')
+
+    print_info "已安装: $version"
+
+    if [ "$major" -lt 22 ]; then
+        print_warn "版本过低 (需要 22+)，需要升级"
+        NEED_NODE=true
+        return 1
+    fi
+
+    print_ok "版本满足要求"
+    return 0
+}
+
+# 安装 Node.js
+install_node() {
+    print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
+
+    # 检查 Homebrew
+    if ! command -v brew &> /dev/null; then
+        print_info "Homebrew 未安装，正在安装..."
+        print_info "这可能需要几分钟，请耐心等待..."
+
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+        if [ $? -ne 0 ]; then
+            print_error "Homebrew 安装失败"
+            show_node_install_help
+            return 1
+        fi
+
+        # 添加到 PATH
+        if [[ $(uname -m) == "arm64" ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        else
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+
+        print_ok "Homebrew 安装成功"
+    fi
+
+    print_info "正在通过 Homebrew 安装 Node.js..."
+    print_info "这可能需要几分钟..."
+
+    if brew install node 2>&1; then
+        # 验证安装
+        if command -v node &> /dev/null; then
+            local version=$(node -v)
+            print_ok "Node.js 安装成功: $version"
+            print_ok "npm 版本: $(npm -v)"
+            return 0
+        fi
+    fi
+
+    print_error "Node.js 安装失败"
+    show_node_install_help
+    return 1
+}
+
+# 显示 Node.js 手动安装帮助
+show_node_install_help() {
+    echo ""
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+    echo -e "${YELLOW}  手动安装 Node.js 的方法：${NC}"
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+    echo ""
+    echo "  方法 1: 下载官方安装包"
+    echo "    访问: https://nodejs.org"
+    echo "    下载 LTS 版本并安装"
+    echo ""
+    echo "  方法 2: 手动运行安装脚本"
+    echo "    curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/2-install-node.sh | bash"
+    echo ""
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+}
+
+# 检测 Git 和 GitHub 连接
+check_git() {
+    print_substep "检测 Git 和 GitHub 连接"
+
+    if ! command -v git &> /dev/null; then
+        print_warn "未安装 Git，正在安装..."
+
+        if command -v brew &> /dev/null; then
+            brew install git
+        else
+            xcode-select --install 2>/dev/null
+            print_info "请在弹出的窗口中完成 Xcode 命令行工具安装"
+            print_info "安装完成后，重新运行此脚本"
+            return 1
+        fi
+    fi
+
+    print_ok "Git: $(git --version | awk '{print $3}')"
+
+    # 测试 GitHub 连接
+    print_info "测试 GitHub 连接..."
+    if run_with_timeout 15 git ls-remote https://github.com &> /dev/null; then
+        print_ok "可以连接 GitHub"
+        return 0
+    else
+        print_warn "无法连接 GitHub"
+        NEED_GIT_MIRROR=true
+        return 1
+    fi
+}
+
+# 配置 Git 镜像
+configure_git_mirror() {
+    print_step "🌐 第 3 步：配置 GitHub 镜像源"
+
+    echo ""
+    echo -e "${YELLOW}你无法直接连接 GitHub，需要配置镜像源${NC}"
+    echo ""
+    echo "请选择镜像源："
+    echo ""
+
+    for i in "${!MIRROR_NAMES[@]}"; do
+        echo "  $((i+1))) ${MIRROR_NAMES[$i]}"
+    done
+
+    echo ""
+    read -p "请输入选项 (1-${#MIRROR_NAMES[@]}): " choice
+
+    local idx=$((choice-1))
+
+    if [ "$choice" -ge 1 ] && [ "$choice" -le ${#MIRROR_NAMES[@]} ]; then
+        local mirror_url="${MIRROR_URLS[$idx]}"
+        print_info "配置镜像: $mirror_url"
+
+        # 清除旧配置
+        for m in "${MIRROR_URLS[@]}"; do
+            git config --global --unset url."$m/github.com/".insteadOf 2>/dev/null
+        done
+
+        # 设置新配置
+        git config --global url."$mirror_url/github.com/".insteadOf "https://github.com/"
+
+        # 测试
+        print_info "测试镜像连接..."
+        if run_with_timeout 15 git ls-remote https://github.com &> /dev/null; then
+            print_ok "镜像配置成功"
+            return 0
+        else
+            print_error "镜像连接失败，请尝试其他镜像"
+            return 1
+        fi
+    else
+        print_error "无效选项"
+        return 1
+    fi
+}
+
+# 检测 OpenClaw
+check_openclaw() {
+    print_substep "检测小龙虾 (OpenClaw)"
+
+    if command -v openclaw &> /dev/null; then
+        local version=$(openclaw --version 2>/dev/null || echo "未知版本")
+        print_ok "已安装: $version"
+
+        echo ""
+        read -p "是否重新安装/更新? (y/n): " choice
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            NEED_OPENCLAW=true
+            return 1
+        fi
+
+        return 0
+    else
+        print_warn "未安装小龙虾"
+        NEED_OPENCLAW=true
+        return 1
+    fi
+}
+
+# 选择 npm 源
+select_npm_registry() {
+    echo ""
+    echo "请选择 npm 源："
+    echo ""
+
+    for i in "${!NPM_NAMES[@]}"; do
+        echo "  $((i+1))) ${NPM_NAMES[$i]}"
+    done
+
+    echo ""
+    read -p "请输入选项 (1-${#NPM_NAMES[@]}): " choice
+
+    local idx=$((choice-1))
+
+    if [ "$choice" -ge 1 ] && [ "$choice" -le ${#NPM_NAMES[@]} ]; then
+        local registry="${NPM_URLS[$idx]}"
+        npm config set registry "$registry"
+        print_ok "已设置: $registry"
+    else
+        print_warn "无效选项，使用默认源"
+    fi
+}
+
+# 安装 OpenClaw
+install_openclaw() {
+    print_step "🦞 第 4 步：安装小龙虾 (OpenClaw)"
+
+    # 先选择 npm 源
+    select_npm_registry
+
+    # 如果已有安装，先卸载
+    if command -v openclaw &> /dev/null; then
+        print_info "卸载旧版本..."
+        npm uninstall -g openclaw 2>/dev/null
+    fi
+
+    print_info "正在安装，请耐心等待..."
+    echo ""
+
+    # 设置环境变量避免 sharp 问题
+    export SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+    if npm install -g openclaw@latest 2>&1; then
+        # 验证安装
+        if command -v openclaw &> /dev/null; then
+            local version=$(openclaw --version 2>/dev/null || echo "未知版本")
+            print_ok "小龙虾安装成功: $version"
+            return 0
+        fi
+    fi
+
+    print_error "小龙虾安装失败"
+    show_openclaw_install_help
+    return 1
+}
+
+# 显示 OpenClaw 安装帮助
+show_openclaw_install_help() {
+    echo ""
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+    echo -e "${YELLOW}  安装失败，请尝试：${NC}"
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+    echo ""
+    echo "  1. 检查网络连接"
+    echo "  2. 尝试更换 npm 源后重新运行此脚本"
+    echo "  3. 手动安装: npm install -g openclaw"
+    echo ""
+    echo "  如需帮助，访问: https://docs.openclaw.ai"
+    echo ""
+    echo -e "${YELLOW}────────────────────────────────────────${NC}"
+}
+
+# 运行配置向导
+run_onboarding() {
+    print_step "🎯 第 5 步：配置小龙虾"
+
+    echo ""
+    echo -e "${CYAN}现在需要配置小龙虾的 AI 模型和消息通道${NC}"
+    echo ""
+    echo "配置向导会帮助你："
+    echo "  • 设置 AI 模型提供商（需要 API Key）"
+    echo "  • 配置消息通道（WhatsApp、Telegram、Discord 等）"
+    echo "  • 安装后台服务（可选）"
+    echo ""
+
+    read -p "是否启动配置向导? (y/n): " choice
+
+    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        print_info "启动配置向导..."
+        echo ""
+        openclaw onboard --install-daemon
+    else
+        print_info "跳过配置向导"
+        print_info "稍后可以运行 'openclaw onboard' 进行配置"
+    fi
+}
+
+# 显示完成信息
+show_complete() {
+    print_success_box
+
+    echo ""
+    echo -e "${GREEN}小龙虾已成功安装！${NC}"
+    echo ""
+    echo -e "${YELLOW}常用命令：${NC}"
+    echo ""
+    echo "  openclaw status      查看状态"
+    echo "  openclaw gateway     启动网关"
+    echo "  openclaw dashboard   打开控制面板"
+    echo "  openclaw --help      查看帮助"
+    echo ""
+    echo -e "${YELLOW}下一步：${NC}"
+    echo ""
+    echo "  1. 运行 ${CYAN}openclaw gateway${NC} 启动网关"
+    echo "  2. 打开浏览器访问 ${CYAN}http://127.0.0.1:18789${NC}"
+    echo ""
+    echo -e "${YELLOW}文档：${NC}https://docs.openclaw.ai"
+    echo -e "${YELLOW}社区：${NC}https://discord.com/invite/clawd"
+    echo ""
+}
+
+# 显示失败信息
+show_failed() {
+    local step="$1"
+
+    print_fail_box
+
+    echo ""
+    echo -e "${RED}安装过程中断：${NC}$step"
+    echo ""
+    echo -e "${YELLOW}解决后重新运行：${NC}"
+    echo ""
+    echo "  curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/install.sh | bash"
+    echo ""
+    echo -e "${YELLOW}或使用 GitHub：${NC}"
+    echo ""
+    echo "  curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash"
+    echo ""
+}
+
+# 主函数
+main() {
+    print_header
+
+    echo -e "${CYAN}这个脚本会帮你完成所有安装，你只需要：${NC}"
+    echo ""
+    echo "  1. 看着屏幕"
+    echo "  2. 偶尔按一下 Enter 或输入 y/n"
+    echo "  3. 等待完成"
+    echo ""
+
+    wait_continue "准备好了吗？按 Enter 开始..."
+
+    # 第 1 步：检测环境
+    if ! detect_environment; then
+        show_failed "系统环境不满足要求"
+        exit 1
+    fi
+
+    # 检测 Node.js
+    check_node
+    node_ok=$?
+
+    # 检测 Git
+    check_git
+    git_ok=$?
+
+    # 检测 OpenClaw
+    check_openclaw
+    openclaw_ok=$?
+
+    # 第 2 步：安装 Node.js（如果需要）
+    if [ "$NEED_NODE" = true ]; then
+        echo ""
+        read -p "需要安装 Node.js，是否继续? (y/n): " choice
+        if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+            show_failed "用户取消安装 Node.js"
+            exit 1
+        fi
+
+        if ! install_node; then
+            show_failed "Node.js 安装失败"
+            exit 1
+        fi
+    fi
+
+    # 第 3 步：配置镜像（如果需要）
+    if [ "$NEED_GIT_MIRROR" = true ]; then
+        echo ""
+        read -p "需要配置 GitHub 镜像源，是否继续? (y/n): " choice
+        if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+            print_warn "跳过镜像配置，后续安装可能失败"
+        else
+            if ! configure_git_mirror; then
+                print_warn "镜像配置失败，尝试继续..."
+            fi
+        fi
+    fi
+
+    # 第 4 步：安装 OpenClaw（如果需要）
+    if [ "$NEED_OPENCLAW" = true ]; then
+        if ! install_openclaw; then
+            show_failed "小龙虾安装失败"
+            exit 1
+        fi
+    else
+        print_step "🦞 小龙虾"
+        print_ok "已安装，跳过"
+    fi
+
+    # 第 5 步：配置向导
+    run_onboarding
+
+    # 完成
+    show_complete
+}
+
+# 运行
+main

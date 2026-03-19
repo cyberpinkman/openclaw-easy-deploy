@@ -8,65 +8,84 @@
 - 不会使用命令行的用户
 - 在中国网络环境下遇到安装困难的用户
 
-## 📋 脚本说明
+---
 
-### Mac 用户 (macOS)
-
-| 脚本 | 用途 | 使用场景 |
-|------|------|----------|
-| `1-check.sh` | 环境自检 | 检测电脑配置、已安装软件 |
-| `2-install-node.sh` | 安装 Node.js | 没有安装 Node.js 或版本过低 |
-| `3-install-git.sh` | 安装/配置 Git | 没有 Git 或需要配置镜像 |
-| `4-install-openclaw.sh` | 安装小龙虾 | 安装 OpenClaw |
-| `5-diagnose.sh` | 故障诊断修复 | 小龙虾运行异常时 |
-
-### Windows 用户
-
-| 脚本 | 用途 | 使用场景 |
-|------|------|----------|
-| `1-check.ps1` | 环境自检 | 检测电脑配置、已安装软件 |
-| `2-install-node.ps1` | 安装 Node.js | 没有安装 Node.js 或版本过低 |
-| `3-install-git.ps1` | 安装/配置 Git | 没有 Git 或需要配置镜像 |
-| `4-install-openclaw.ps1` | 安装小龙虾 | 安装 OpenClaw |
-| `5-diagnose.ps1` | 故障诊断修复 | 小龙虾运行异常时 |
-
-## 🚀 快速开始
+## 🚀 快速开始（推荐）
 
 ### Mac 用户
 
-1. 打开「终端」
-2. 执行以下命令下载并运行自检脚本：
+打开「终端」，复制粘贴以下命令：
 
-**方式一：GitHub（有代理/VPN 用户）**
+**方式一：Gitee（国内推荐）**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/1-check.sh | bash
+curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/install.sh | bash
 ```
 
-**方式二：Gitee（无代理用户，推荐）**
+**方式二：GitHub（有代理用户）**
 ```bash
-curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/1-check.sh | bash
+curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash
 ```
-
-3. 根据提示逐步执行后续脚本
 
 ### Windows 用户
 
-1. 以管理员身份打开「PowerShell」
-2. 执行以下命令：
+以**管理员身份**打开「PowerShell」，复制粘贴以下命令：
 
-**方式一：GitHub（有代理/VPN 用户）**
+**方式一：Gitee（国内推荐）**
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/1-check.ps1 | iex
+iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex
 ```
 
-**方式二：Gitee（无代理用户，推荐）**
+**方式二：GitHub（有代理用户）**
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/1-check.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
 ```
 
-3. 根据提示逐步执行后续脚本
+---
+
+## 📖 安装脚本做什么？
+
+一条命令后，脚本会自动：
+
+1. ✅ 检测你的系统环境
+2. ✅ 检测并安装 Node.js（如果没有或版本过低）
+3. ✅ 检测 GitHub 连接，必要时配置镜像源
+4. ✅ 安装小龙虾 (OpenClaw)
+5. ✅ 启动配置向导
+
+你需要做的：
+- 看着屏幕
+- 偶尔按 Enter 或输入 y/n
+- 等待完成
+
+---
+
+## 🔧 独立脚本（高级用户）
+
+如果遇到问题，可以使用独立脚本手动处理：
+
+### Mac 用户
+
+| 脚本 | 用途 | 使用场景 |
+|------|------|----------|
+| `1-check.sh` | 环境自检 | 只想看看当前环境状态 |
+| `2-install-node.sh` | 安装 Node.js | 手动安装/升级 Node.js |
+| `3-install-git.sh` | 配置 Git 镜像 | 手动配置/更换镜像源 |
+| `4-install-openclaw.sh` | 安装小龙虾 | 手动安装/重装 OpenClaw |
+| `5-diagnose.sh` | 故障诊断 | 小龙虾运行异常时 |
+
+### Windows 用户
+
+| 脚本 | 用途 | 使用场景 |
+|------|------|----------|
+| `1-check.ps1` | 环境自检 | 只想看看当前环境状态 |
+| `2-install-node.ps1` | 安装 Node.js | 手动安装/升级 Node.js |
+| `3-install-git.ps1` | 配置 Git 镜像 | 手动配置/更换镜像源 |
+| `4-install-openclaw.ps1` | 安装小龙虾 | 手动安装/重装 OpenClaw |
+| `5-diagnose.ps1` | 故障诊断 | 小龙虾运行异常时 |
+
+---
 
 ## ⚙️ 系统要求
 
@@ -77,19 +96,25 @@ iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/1
 | Node.js | 22.16+ | 24.x |
 | 操作系统 | macOS 12+ / Windows 10 | macOS 14+ / Windows 11 |
 
-## 🔧 常见问题
+---
+
+## ❓ 常见问题
 
 ### 安装 Node.js 失败
 
-- **Mac**: 确保已安装 Xcode 命令行工具：`xcode-select --install`
-- **Windows**: 尝试手动下载安装包：https://nodejs.org
+**Mac**: 确保已安装 Xcode 命令行工具：
+```bash
+xcode-select --install
+```
+
+**Windows**: 尝试手动下载安装包：https://nodejs.org
 
 ### Git 连接超时
 
-如果你没有 VPN，脚本会引导你配置国内镜像源。推荐镜像：
-- https://gitclone.com
-- https://hub.fastgit.xyz
-- https://mirror.ghproxy.com
+如果你没有 VPN，脚本会引导你配置国内镜像源。可用镜像：
+- gitclone.com
+- mirror.ghproxy.com
+- ghproxy.net
 
 ### npm 安装慢
 
@@ -101,11 +126,21 @@ iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/1
 
 Windows 系统下 `restart` 命令可能失效，诊断脚本会使用 `openclaw gateway` 命令启动网关。
 
+### 安装后命令找不到
+
+安装完成后可能需要：
+- **Mac**: 关闭终端，重新打开
+- **Windows**: 关闭 PowerShell，重新打开（以管理员身份）
+
+---
+
 ## 📞 获取帮助
 
 - OpenClaw 官方文档：https://docs.openclaw.ai
 - 社区支持：https://discord.com/invite/clawd
 - 问题反馈：https://github.com/cyberpinkman/openclaw-easy-deploy/issues
+
+---
 
 ## 📜 许可证
 
