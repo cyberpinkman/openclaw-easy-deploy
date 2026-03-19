@@ -315,8 +315,9 @@ install_node() {
     fi
 
     # 跳过 Homebrew 更新（对小白用户来说经常卡住，且非必须）
-    # 只有 Homebrew 版本过旧导致安装失败时才需要手动 update
-    print_info "跳过 Homebrew 更新 (非必须步骤)"
+    # 禁用 Homebrew 自动更新（brew install 会自动触发 brew update）
+    export HOMEBREW_NO_AUTO_UPDATE=1
+    export HOMEBREW_NO_INSTALL_FROM_API=1
 
     print_info "正在通过 Homebrew 安装 Node.js..."
     print_info "这可能需要几分钟..."
@@ -413,6 +414,9 @@ check_git() {
         print_warn "未安装 Git，正在安装..."
 
         if command -v brew &> /dev/null; then
+            # 禁用 Homebrew 自动更新
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            export HOMEBREW_NO_INSTALL_FROM_API=1
             brew install git
         else
             xcode-select --install 2>/dev/null

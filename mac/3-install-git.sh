@@ -129,6 +129,9 @@ install_git() {
     # 使用 Homebrew 安装
     if command -v brew &> /dev/null; then
         print_info "使用 Homebrew 安装 Git..."
+        # 禁用 Homebrew 自动更新
+        export HOMEBREW_NO_AUTO_UPDATE=1
+        export HOMEBREW_NO_INSTALL_FROM_API=1
         brew install git
     else
         # 安装 Xcode 命令行工具（包含 Git）

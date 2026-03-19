@@ -134,8 +134,9 @@ install_via_homebrew() {
         fi
     fi
 
-    print_info "正在更新 Homebrew..."
-    brew update 2>/dev/null || print_warn "Homebrew 更新跳过"
+    # 禁用 Homebrew 自动更新（brew install 会自动触发 brew update）
+    export HOMEBREW_NO_AUTO_UPDATE=1
+    export HOMEBREW_NO_INSTALL_FROM_API=1
 
     print_info "正在安装 Node.js..."
     brew install node
