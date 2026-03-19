@@ -264,6 +264,9 @@ install_node() {
         print_ok "Homebrew 安装成功"
     fi
 
+    print_info "正在更新 Homebrew..."
+    brew update 2>&1 || print_warn "Homebrew 更新失败，尝试继续..."
+
     print_info "正在通过 Homebrew 安装 Node.js..."
     print_info "这可能需要几分钟..."
 
@@ -275,6 +278,30 @@ install_node() {
             print_ok "npm 版本: $(npm -v)"
             return 0
         fi
+    fi
+
+    # Homebrew 失败，尝试官方安装包
+    print_warn "Homebrew 安装失败，尝试使用官方安装包..."
+
+    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
+    local tmp_file="/tmp/node-installer.pkg"
+
+    print_info "下载地址: $download_url"
+    print_info "正在下载..."
+
+    if curl -fsSL "$download_url" -o "$tmp_file" 2>&1; then
+        print_info "正在安装... (需要输入管理员密码)"
+        if sudo installer -pkg "$tmp_file" -target / 2>&1; then
+            rm -f "$tmp_file"
+            # 刷新 PATH
+            export PATH="/usr/local/bin:$PATH"
+            if command -v node &> /dev/null; then
+                print_ok "Node.js 安装成功: $(node -v)"
+                print_ok "npm 版本: $(npm -v)"
+                return 0
+            fi
+        fi
+        rm -f "$tmp_file"
     fi
 
     print_error "Node.js 安装失败"
