@@ -28,7 +28,23 @@ curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/m
 
 ### Windows 用户
 
-以**管理员身份**打开「PowerShell」，复制粘贴以下命令：
+请按下面 3 步操作：
+
+**第 1 步：以管理员身份打开 PowerShell**
+
+在开始菜单里搜索 `PowerShell`，右键选择“**以管理员身份运行**”。
+
+**第 2 步：先运行授权命令**
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+看到提示后输入 `Y` 并回车。
+
+> 💡 这条授权命令通常只需要执行一次，后面再次安装或重装时一般不用重复输入。
+
+**第 3 步：再运行一键安装命令**
 
 **方式一：Gitee（国内推荐）**
 ```powershell
@@ -40,7 +56,9 @@ iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/i
 iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
 ```
 
-> 💡 提示：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
+> 💡 提示 1：这一步是为了避免系统默认禁止脚本执行，必须先手动授权一次。即使把授权命令写进安装脚本开头，也可能因为系统策略限制而先报错，所以最稳妥的方式是你先手动运行上面的授权命令。
+>
+> 💡 提示 2：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
 > ```powershell
 > iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 | iex
 > ```
@@ -134,6 +152,34 @@ Windows 系统下 `restart` 命令可能失效，诊断脚本会使用 `openclaw
 安装完成后可能需要：
 - **Mac**: 关闭终端，重新打开
 - **Windows**: 关闭 PowerShell，重新打开（以管理员身份）
+
+### Windows 提示脚本执行被禁用
+
+请先以**管理员身份**打开 PowerShell，运行：
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+输入 `Y` 确认后，再重新运行一键安装命令。
+
+---
+
+## ✅ 安装后先做什么？
+
+安装完成后，先在终端或 PowerShell 里输入：
+
+```bash
+openclaw dashboard
+```
+
+这会自动打开小龙虾的 Web 控制台。
+
+如果需要启动网关，再运行：
+
+```bash
+openclaw gateway
+```
 
 ---
 
