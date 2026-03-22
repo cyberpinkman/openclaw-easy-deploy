@@ -18,7 +18,7 @@ if ($PSCurrentVersion -lt $PSMinVersion) {
     Write-Host "  请升级 PowerShell 后重试" -ForegroundColor Yellow
     Write-Host ""
     Read-Host "按 Enter 键退出"
-    exit 1
+    return
 }
 
 if ($PSCurrentVersion -lt $PSRecommendVersion) {
@@ -702,7 +702,8 @@ function Main {
     # 第 1 步：检测环境
     if (-not (Test-Environment)) {
         Show-Failed -Step "系统环境不满足要求"
-        exit 1
+        Wait-Continue "按 Enter 键返回 PowerShell..."
+        return
     }
 
     # 检测 Node.js
@@ -720,12 +721,14 @@ function Main {
         $choice = Read-Host "需要安装 Node.js，是否继续? (y/n)"
         if ($choice -ne "y" -and $choice -ne "Y") {
             Show-Failed -Step "用户取消安装 Node.js"
-            exit 1
+            Wait-Continue "按 Enter 键返回 PowerShell..."
+            return
         }
 
         if (-not (Install-Node)) {
             Show-Failed -Step "Node.js 安装失败"
-            exit 1
+            Wait-Continue "按 Enter 键返回 PowerShell..."
+            return
         }
     }
 
@@ -744,7 +747,8 @@ function Main {
     if ($script:NeedOpenClaw) {
         if (-not (Install-OpenClaw)) {
             Show-Failed -Step "小龙虾安装失败"
-            exit 1
+            Wait-Continue "按 Enter 键返回 PowerShell..."
+            return
         }
     } else {
         Write-Step "🦞 小龙虾"
