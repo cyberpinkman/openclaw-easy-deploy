@@ -29,8 +29,8 @@ if ($PSCurrentVersion -lt $PSRecommendVersion) {
 
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
-        $choice = Read-Host "  是否自动升级 PowerShell 7? (y/n)"
-        if ($choice -eq "y" -or $choice -eq "Y") {
+        $choice = Read-YesNoChoice -Prompt "  是否自动升级 PowerShell 7?" -Default $false
+        if ($choice) {
             Write-Host "  [i] 正在安装 PowerShell 7..." -ForegroundColor Cyan
             try {
                 winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
@@ -227,6 +227,52 @@ function Wait-Continue {
     param([string]$Message = "按 Enter 继续...")
     Write-Host ""
     Read-Host $Message | Out-Null
+}
+
+function Clear-PendingConsoleInput {
+    try {
+        while ([Console]::KeyAvailable) {
+            [void][Console]::ReadKey($true)
+        }
+    } catch {
+        # 某些宿主环境不支持 KeyAvailable，忽略即可
+    }
+}
+
+function Read-YesNoChoice {
+    param(
+        [string]$Prompt,
+        [bool]$Default = $true,
+        [int]$MaxAttempts = 5
+    )
+
+    $defaultHint = if ($Default) { "Y/n" } else { "y/N" }
+    $defaultText = if ($Default) { "y" } else { "n" }
+
+    Start-Sleep -Milliseconds 150
+    Clear-PendingConsoleInput
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $choice = Read-Host "$Prompt [$defaultHint]"
+
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            Write-Info "未输入，使用默认选项: $defaultText"
+            return $Default
+        }
+
+        $normalized = $choice.Trim().ToLowerInvariant()
+        if ($normalized -in @("y", "yes")) {
+            return $true
+        }
+        if ($normalized -in @("n", "no")) {
+            return $false
+        }
+
+        Write-Warn "请输入 y 或 n（当前输入: '$choice'）"
+    }
+
+    Write-Warn "已达到最大尝试次数，使用默认选项: $defaultText"
+    return $Default
 }
 
 function Refresh-Path {
@@ -530,8 +576,8 @@ function Test-OpenClaw {
         Write-OK "已安装: $version"
 
         Write-Host ""
-        $choice = Read-Host "是否重新安装/更新? (y/n)"
-        if ($choice -eq "y" -or $choice -eq "Y") {
+        $choice = Read-YesNoChoice -Prompt "是否重新安装/更新?" -Default $false
+        if ($choice) {
             $script:NeedOpenClaw = $true
             return $false
         }
@@ -650,9 +696,9 @@ function Start-Onboarding {
     Write-Host "  • 安装后台服务（可选）"
     Write-Host ""
 
-    $choice = Read-Host "是否启动配置向导? (y/n)"
+    $choice = Read-YesNoChoice -Prompt "是否启动配置向导?" -Default $true
 
-    if ($choice -eq "y" -or $choice -eq "Y") {
+    if ($choice) {
         Write-Info "启动配置向导..."
         Write-Host ""
         openclaw onboard --install-daemon
@@ -734,8 +780,8 @@ function Main {
     # 第 2 步：安装 Node.js（如果需要）
     if ($script:NeedNode) {
         Write-Host ""
-        $choice = Read-Host "需要安装 Node.js，是否继续? (y/n)"
-        if ($choice -ne "y" -and $choice -ne "Y") {
+        $choice = Read-YesNoChoice -Prompt "需要安装 Node.js，是否继续?" -Default $true
+        if (-not $choice) {
             Show-Failed -Step "用户取消安装 Node.js"
             return
         }
@@ -749,8 +795,8 @@ function Main {
     # 第 3 步：配置镜像（如果需要）
     if ($script:NeedGitMirror) {
         Write-Host ""
-        $choice = Read-Host "需要配置 GitHub 镜像源，是否继续? (y/n)"
-        if ($choice -ne "y" -and $choice -ne "Y") {
+        $choice = Read-YesNoChoice -Prompt "需要配置 GitHub 镜像源，是否继续?" -Default $true
+        if (-not $choice) {
             Write-Warn "跳过镜像配置，后续安装可能失败"
         } else {
             $null = Set-GitMirror

@@ -117,6 +117,42 @@ function Wait-Continue($Message = "Press Enter to continue...") {
     Read-Host $Message | Out-Null
 }
 
+function Clear-PendingConsoleInput {
+    try {
+        while ([Console]::KeyAvailable) {
+            [void][Console]::ReadKey($true)
+        }
+    } catch {
+        # Some hosts do not support KeyAvailable. Ignore.
+    }
+}
+
+function Read-YesNoChoice($Prompt, $Default = $true, $MaxAttempts = 5) {
+    $defaultHint = if ($Default) { "Y/n" } else { "y/N" }
+    $defaultText = if ($Default) { "y" } else { "n" }
+
+    Start-Sleep -Milliseconds 150
+    Clear-PendingConsoleInput
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $choice = Read-Host "$Prompt [$defaultHint]"
+
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            Write-Info "No input, using default: $defaultText"
+            return $Default
+        }
+
+        $normalized = $choice.Trim().ToLowerInvariant()
+        if ($normalized -in @("y", "yes")) { return $true }
+        if ($normalized -in @("n", "no")) { return $false }
+
+        Write-Warn "Please enter y or n (got: '$choice')"
+    }
+
+    Write-Warn "Max attempts reached, using default: $defaultText"
+    return $Default
+}
+
 function Refresh-Path {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }
@@ -264,8 +300,8 @@ function Test-OpenClaw {
     $ocCmd = Get-Command openclaw -ErrorAction SilentlyContinue
     if ($ocCmd) {
         Write-OK "Installed: $(openclaw --version 2>$null)"
-        $choice = Read-Host "Reinstall/Update? (y/n)"
-        if ($choice -eq "y" -or $choice -eq "Y") { $script:NeedOpenClaw = $true; return $false }
+        $choice = Read-YesNoChoice "Reinstall/Update?" $false
+        if ($choice) { $script:NeedOpenClaw = $true; return $false }
         return $true
     }
     Write-Warn "OpenClaw not installed"
@@ -324,8 +360,8 @@ function Start-Onboarding {
     Write-Host ""
     Write-Host "Now configure AI model and messaging channels" -ForegroundColor Cyan
     Write-Host ""
-    $choice = Read-Host "Start config wizard? (y/n)"
-    if ($choice -eq "y" -or $choice -eq "Y") {
+    $choice = Read-YesNoChoice "Start config wizard?" $true
+    if ($choice) {
         Write-Info "Starting wizard..."
         openclaw onboard --install-daemon
     } else {
@@ -370,15 +406,15 @@ function Main {
 
     if ($script:NeedNode) {
         Write-Host ""
-        $choice = Read-Host "Need to install Node.js, continue? (y/n)"
-        if ($choice -ne "y" -and $choice -ne "Y") { Show-Failed "User cancelled Node.js install"; exit 1 }
+        $choice = Read-YesNoChoice "Need to install Node.js, continue?" $true
+        if (-not $choice) { Show-Failed "User cancelled Node.js install"; exit 1 }
         if (-not (Install-Node)) { Show-Failed "Node.js install failed"; exit 1 }
     }
 
     if ($script:NeedGitMirror) {
         Write-Host ""
-        $choice = Read-Host "Need GitHub mirror, continue? (y/n)"
-        if ($choice -eq "y" -or $choice -eq "Y") { $null = Set-GitMirror }
+        $choice = Read-YesNoChoice "Need GitHub mirror, continue?" $true
+        if ($choice) { $null = Set-GitMirror }
         else { Write-Warn "Skipping mirror, install may fail" }
     }
 
