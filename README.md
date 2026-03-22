@@ -48,19 +48,19 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **方式一：Gitee（国内推荐）**
 ```powershell
-iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex
+$tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
 ```
 
 **方式二：GitHub（有代理用户）**
 ```powershell
-iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex
+$tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
 ```
 
 > 💡 提示 1：这一步是为了避免系统默认禁止脚本执行，必须先手动授权一次。即使把授权命令写进安装脚本开头，也可能因为系统策略限制而先报错，所以最稳妥的方式是你先手动运行上面的授权命令。
 >
 > 💡 提示 2：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
 > ```powershell
-> iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 | iex
+> $tmp = Join-Path $env:TEMP "openclaw-install-en.ps1"; iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
 > ```
 
 ---

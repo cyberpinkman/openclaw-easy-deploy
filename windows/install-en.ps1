@@ -339,7 +339,7 @@ function Show-Complete {
 function Show-Failed($Step) {
     Write-FailBox -Reason $Step
     Write-Host "Fix and rerun:" -ForegroundColor Yellow
-    Write-Host "  iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 | iex"
+    Write-Host '  $tmp = Join-Path $env:TEMP "openclaw-install-en.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp'
 }
 
 function Main {

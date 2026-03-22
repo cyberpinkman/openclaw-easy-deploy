@@ -678,11 +678,11 @@ function Show-Failed {
 
     Write-Host "解决后重新运行：" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 | iex"
+    Write-Host '  $tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp'
     Write-Host ""
     Write-Host "或使用 GitHub：" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 | iex"
+    Write-Host '  $tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp'
     Write-Host ""
 }
 
