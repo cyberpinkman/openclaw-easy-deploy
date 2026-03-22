@@ -207,6 +207,22 @@ function Write-FailBox {
     Write-Host ""
 }
 
+function Show-DiskSpaceHelp {
+    param([double]$FreeGB)
+
+    Write-Host ""
+    Write-Host "  磁盘空间不足，暂时无法继续安装。" -ForegroundColor Red
+    Write-Host "  当前 C 盘可用空间: ${FreeGB}GB" -ForegroundColor Yellow
+    Write-Host "  最低要求: 2GB，可用空间建议 5GB 以上" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  建议先做以下任一操作：" -ForegroundColor Cyan
+    Write-Host "  1. 清理下载文件夹和回收站"
+    Write-Host "  2. 删除不需要的大文件或旧安装包"
+    Write-Host "  3. 运行 Windows 磁盘清理"
+    Write-Host "  4. 清理后重新运行安装脚本"
+    Write-Host ""
+}
+
 function Wait-Continue {
     param([string]$Message = "按 Enter 继续...")
     Write-Host ""
@@ -277,7 +293,8 @@ function Test-Environment {
     $freeGB = [math]::Round($freeSpace / 1GB, 2)
 
     if ($freeGB -lt 2) {
-        Write-Err "硬盘空间不足 (${freeGB}GB)，建议至少 2GB"
+        Write-Err "硬盘空间不足 (${freeGB}GB)"
+        Show-DiskSpaceHelp -FreeGB $freeGB
         return $false
     }
     Write-OK "可用空间: ${freeGB}GB"

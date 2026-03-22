@@ -73,7 +73,9 @@ function Check-Hardware {
     Write-ColorOutput "C盘可用空间: ${freeGB}GB" -Type Info
 
     if ($freeGB -lt 2) {
-        Write-ColorOutput "硬盘空间不足 (低于 2GB)，请清理磁盘" -Type Error
+        Write-ColorOutput "硬盘空间不足，当前只有 ${freeGB}GB，最低需要 2GB" -Type Error
+        Write-ColorOutput "建议先清理下载文件夹、回收站或不需要的大文件" -Type Info
+        Write-ColorOutput "清理后再运行安装脚本，推荐保留 5GB+ 可用空间" -Type Info
         return $false
     } elseif ($freeGB -lt 5) {
         Write-ColorOutput "硬盘空间较少 (2-5GB)，建议清理" -Type Warn

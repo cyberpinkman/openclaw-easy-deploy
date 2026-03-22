@@ -80,6 +80,20 @@ function Write-FailBox($Reason) {
     Write-Host ""
 }
 
+function Show-DiskSpaceHelp($FreeGB) {
+    Write-Host ""
+    Write-Host "  Not enough disk space to continue." -ForegroundColor Red
+    Write-Host "  Free space on C: drive: $FreeGB GB" -ForegroundColor Yellow
+    Write-Host "  Minimum required: 2GB, recommended: 5GB+" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Suggested actions:" -ForegroundColor Cyan
+    Write-Host "  1. Empty Downloads and Recycle Bin"
+    Write-Host "  2. Remove large unused files or old installers"
+    Write-Host "  3. Run Windows Disk Cleanup"
+    Write-Host "  4. Run this installer again after cleanup"
+    Write-Host ""
+}
+
 function Read-NumberChoice($Prompt, $Min, $Max, $Default = $Min) {
     $maxAttempts = 5
     $attempt = 1
@@ -144,7 +158,7 @@ function Test-Environment {
 
     $freeSpace = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
     $freeGB = [math]::Round($freeSpace / 1GB, 2)
-    if ($freeGB -lt 2) { Write-Err "Disk space too low ($freeGB GB), need 2GB+"; return $false }
+    if ($freeGB -lt 2) { Write-Err "Disk space too low ($freeGB GB)"; Show-DiskSpaceHelp $freeGB; return $false }
     Write-OK "Disk: $freeGB GB free"
 
     return $true
