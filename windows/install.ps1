@@ -35,10 +35,10 @@ if ($PSCurrentVersion -lt $PSRecommendVersion) {
             try {
                 winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
                 Write-Host "  [OK] PowerShell 7 安装成功" -ForegroundColor Green
-                Write-Host "  [i] 请关闭当前窗口，打开 'pwsh' 后重新运行此脚本" -ForegroundColor Yellow
+                Write-Host "  [i] 已安装 pwsh，后续重新运行脚本时可获得更好的中文显示" -ForegroundColor Yellow
+                Write-Host "  [i] 当前安装流程将继续在这个 PowerShell 窗口中执行" -ForegroundColor Cyan
                 Write-Host ""
-                Read-Host "  按 Enter 键退出"
-                exit 0
+                Read-Host "  按 Enter 键继续安装"
             } catch {
                 Write-Host "  [!] 自动升级失败: $_" -ForegroundColor Yellow
                 Write-Host "  [i] 将继续使用当前版本" -ForegroundColor Cyan
