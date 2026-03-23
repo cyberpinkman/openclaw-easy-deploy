@@ -6,6 +6,7 @@
 
 - 开发者：Pink 和他的 Codex
 - 联系方式：cyberpink.xx@gmail.com
+- 开源仓库：https://github.com/cyberpinkman/openclaw-easy-deploy
 
 这部分信息会显示在安装器界面和 README 中，用于让用户知道维护者是谁。
 

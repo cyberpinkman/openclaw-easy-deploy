@@ -35,6 +35,7 @@
 
 - 开发者：Pink 和他的 Codex
 - 联系方式：cyberpink.xx@gmail.com
+- 开源仓库：https://github.com/cyberpinkman/openclaw-easy-deploy
 
 > 💡 安装程序还支持**修复安装**和**卸载**功能。如果你的电脑已经安装过小龙虾，打开安装程序会自动检测并提供修复或卸载选项。
 >
@@ -261,6 +262,7 @@ openclaw gateway
 - 社区支持：https://discord.com/invite/clawd
 - 问题反馈：https://github.com/cyberpinkman/openclaw-easy-deploy/issues
 - 开发者联系：cyberpink.xx@gmail.com
+- 开源仓库：https://github.com/cyberpinkman/openclaw-easy-deploy
 
 ---
 
