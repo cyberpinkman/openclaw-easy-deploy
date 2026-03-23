@@ -18,8 +18,10 @@
 
 | 系统 | 下载链接 | 备用下载 |
 |------|----------|----------|
-| Mac (.dmg) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) | 网盘下载（见群公告） |
-| Windows (.exe) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) | 网盘下载（见群公告） |
+| Mac (.dmg) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) |
+| Windows (.exe) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) |
+
+> 💡 在 GitHub 仓库页里，默认优先使用 GitHub Releases 下载；如果你所在网络环境访问 GitHub 较慢或不可用，再切换到 Gitee Releases。
 
 安装程序会自动帮你：
 
