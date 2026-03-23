@@ -16,12 +16,10 @@
 
 下载安装程序，**双击运行**，全程鼠标操作，无需任何命令行知识。
 
-| 系统 | 下载链接 | 备用下载 |
-|------|----------|----------|
-| Mac (.dmg) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) |
-| Windows (.exe) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) | [Gitee Releases](https://gitee.com/cyberpinkman/openclaw-easy-deploy/releases) |
-
-> 💡 在 GitHub 仓库页里，默认优先使用 GitHub Releases 下载；如果你所在网络环境访问 GitHub 较慢或不可用，再切换到 Gitee Releases。
+| 系统 | 下载链接 |
+|------|----------|
+| Mac (.dmg) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) |
+| Windows (.exe) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) |
 
 安装程序会自动帮你：
 
@@ -51,12 +49,7 @@
 
 打开「终端」，复制粘贴以下命令：
 
-**Gitee（国内推荐）**
-```bash
-curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/install.sh | bash
-```
-
-**GitHub（有代理用户）**
+**GitHub**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash
 ```
@@ -81,19 +74,14 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **第 3 步：再运行一键安装命令**
 
-**Gitee（国内推荐）**
-```powershell
-$tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
-```
-
-**GitHub（有代理用户）**
+**GitHub**
 ```powershell
 $tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
 ```
 
 > 💡 提示：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
 > ```powershell
-> $tmp = Join-Path $env:TEMP "openclaw-install-en.ps1"; iwr -useb https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/windows/install-en.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
+> $tmp = Join-Path $env:TEMP "openclaw-install-en.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
 > ```
 
 ---
