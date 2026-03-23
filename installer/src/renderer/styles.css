@@ -195,6 +195,15 @@ body {
   text-align: center;
 }
 
+.logo-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  margin-bottom: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  animation: float 3s ease-in-out infinite;
+}
+
 .logo-emoji {
   font-size: 56px;
   margin-bottom: 8px;
@@ -259,7 +268,48 @@ body {
 .version-text {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
+}
+
+.support-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.support-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.support-row strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.support-label {
+  color: var(--text-muted);
+}
+
+.support-link,
+.complete-meta a {
+  color: var(--info);
+  text-decoration: none;
+}
+
+.support-link:hover,
+.complete-meta a:hover {
+  text-decoration: underline;
 }
 
 /* ===== Buttons ===== */
@@ -813,6 +863,13 @@ body {
   display: flex;
   gap: 12px;
   margin-top: 4px;
+}
+
+.complete-meta {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .link-btn {

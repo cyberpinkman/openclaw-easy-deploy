@@ -13,7 +13,7 @@
     "build:win:x64": "electron-builder --win --x64",
     "build:win:arm64": "electron-builder --win --arm64"
   },
-  "author": "cyberpinkman",
+  "author": "Pink 和他的 Codex <cyberpink.xx@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0",
@@ -22,16 +22,19 @@
   "build": {
     "appId": "com.openclaw.installer",
     "productName": "OpenClaw 安装程序",
+    "copyright": "Copyright © 2026 Pink 和他的 Codex",
     "directories": {
       "output": "dist"
     },
     "mac": {
       "category": "public.app-category.utilities",
+      "icon": "src/renderer/assets/icon.icns",
       "target": [
         "dmg"
       ]
     },
     "win": {
+      "icon": "src/renderer/assets/icon.ico",
       "target": [
         "nsis"
       ]

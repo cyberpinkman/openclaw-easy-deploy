@@ -31,6 +31,11 @@
 
 **全程可视化**，有进度条、有弹窗提示，你只需要点击按钮即可。
 
+安装程序内显示的开发者信息：
+
+- 开发者：Pink 和他的 Codex
+- 联系方式：cyberpink.xx@gmail.com
+
 > 💡 安装程序还支持**修复安装**和**卸载**功能。如果你的电脑已经安装过小龙虾，打开安装程序会自动检测并提供修复或卸载选项。
 >
 > 💡 **完全卸载**会优先按安装器记录的“安装前状态”回滚系统改动，例如 Git 镜像、npm 源，以及 onboarding 期间可能变更的系统代理。它不会无差别重置你当前电脑上的所有代理设置。
@@ -110,6 +115,40 @@ npm uninstall -g openclaw
 如需清理配置数据，删除以下目录：
 - Mac: `~/.openclaw` 和 `~/.config/openclaw`
 - Windows: `%APPDATA%\openclaw` 和 `%LOCALAPPDATA%\openclaw`
+
+---
+
+## 🛠️ 安装程序构建与发布
+
+图形安装器工程位于 [installer/](./installer)，目前已经补齐了自定义图标资源：
+
+- macOS 图标：`installer/src/renderer/assets/icon.icns`
+- Windows 图标：`installer/src/renderer/assets/icon.ico`
+- 通用源图：`installer/src/renderer/assets/icon.png`
+
+常用构建命令：
+
+```bash
+cd installer
+npm ci
+npm run build:mac
+npm run build:mac:universal
+npm run build:win:x64
+npm run build:win:arm64
+```
+
+如果你要做正式发布，建议先看：
+
+- [installer/RELEASE.md](./installer/RELEASE.md)
+
+这里面补了：
+
+- 打包产物矩阵
+- macOS / Windows 签名说明
+- 上架前自测清单
+- 发布时需要准备的环境变量和证书信息
+
+> 💡 这里的“开发者：Pink 和他的 Codex”是安装器里展示给用户看的作者信息，不等同于代码签名。真正的签名依赖 Apple Developer ID 或 Windows Authenticode 证书。
 
 ---
 
@@ -221,6 +260,7 @@ openclaw gateway
 - OpenClaw 官方文档：https://docs.openclaw.ai
 - 社区支持：https://discord.com/invite/clawd
 - 问题反馈：https://github.com/cyberpinkman/openclaw-easy-deploy/issues
+- 开发者联系：cyberpink.xx@gmail.com
 
 ---
 
