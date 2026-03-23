@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 小龙虾 OpenClaw 安装程序</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Draggable title bar area -->
+  <div class="titlebar">
+    <span class="titlebar-text">OpenClaw 安装程序</span>
+  </div>
+
+  <div class="app">
+    <!-- Step indicators -->
+    <div class="steps-bar" id="steps-bar">
+      <div class="step-indicator active" data-step="0">
+        <div class="step-dot">1</div>
+        <span>欢迎</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-indicator" data-step="1">
+        <div class="step-dot">2</div>
+        <span>检测</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-indicator" data-step="2">
+        <div class="step-dot">3</div>
+        <span>安装</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-indicator" data-step="3">
+        <div class="step-dot">4</div>
+        <span>配置</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-indicator" data-step="4">
+        <div class="step-dot">5</div>
+        <span>完成</span>
+      </div>
+    </div>
+
+    <!-- Page container -->
+    <div class="page-container">
+
+      <!-- Page: Initial Mode (shown if already installed) -->
+      <div class="page" id="page-mode">
+        <div class="mode-content">
+          <div class="logo-emoji" style="font-size:40px">🦞</div>
+          <h2>检测到已安装小龙虾</h2>
+          <p class="mode-detected" id="mode-version">当前版本: -</p>
+          <div class="mode-cards">
+            <button class="mode-card primary" id="btn-mode-reinstall">
+              <span class="mode-card-icon">🔄</span>
+              <h3>重新安装</h3>
+              <p>更新到最新版本<br>保留配置数据</p>
+            </button>
+            <button class="mode-card" id="btn-mode-repair">
+              <span class="mode-card-icon">🔧</span>
+              <h3>修复安装</h3>
+              <p>修复损坏的安装<br>保留所有数据</p>
+            </button>
+            <button class="mode-card danger" id="btn-mode-uninstall">
+              <span class="mode-card-icon">🗑️</span>
+              <h3>卸载</h3>
+              <p>卸载小龙虾<br>可选保留数据</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Uninstall options -->
+      <div class="page" id="page-uninstall">
+        <div class="uninstall-content">
+          <div style="font-size:40px">🗑️</div>
+          <h2>选择卸载方式</h2>
+          <p style="color:var(--text-secondary);font-size:13px;max-width:380px">
+            请选择卸载模式。完全卸载将清除所有数据，并按安装器记录的安装前状态恢复相关配置。
+          </p>
+          <div class="uninstall-options">
+            <button class="uninstall-card simple" id="btn-uninstall-simple">
+              <span style="font-size:28px">📦</span>
+              <h3>简单卸载</h3>
+              <p>卸载程序但保留数据</p>
+              <ul>
+                <li>卸载 openclaw 命令</li>
+                <li>保留配置文件</li>
+                <li>保留日志和数据</li>
+              </ul>
+            </button>
+            <button class="uninstall-card complete" id="btn-uninstall-complete">
+              <span style="font-size:28px">🧹</span>
+              <h3>完全卸载</h3>
+              <p>删除一切，恢复系统</p>
+              <ul>
+                <li>卸载 openclaw 命令</li>
+                <li>恢复 Git 镜像配置</li>
+                <li>移除后台服务</li>
+                <li>删除所有配置和数据</li>
+                <li>恢复 npm 源设置</li>
+              </ul>
+            </button>
+          </div>
+          <button class="back-link" id="btn-uninstall-back">← 返回</button>
+        </div>
+      </div>
+
+      <!-- Page: Uninstall progress -->
+      <div class="page" id="page-uninstall-progress">
+        <div class="uninstall-content">
+          <h2 id="uninstall-title">正在卸载...</h2>
+          <div class="uninstall-progress">
+            <div class="progress-component">
+              <div class="progress-label">
+                <span class="component-name" id="uninstall-stage">卸载中</span>
+                <span class="progress-percent" id="uninstall-percent">0%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="uninstall-progress-bar"></div>
+              </div>
+              <p class="progress-message" id="uninstall-message">准备中...</p>
+            </div>
+          </div>
+          <div id="uninstall-done" style="display:none">
+            <button class="btn btn-secondary" id="btn-uninstall-close">关闭安装程序</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 0: Welcome -->
+      <div class="page active" id="page-welcome">
+        <div class="welcome-content">
+          <div class="logo-area">
+            <div class="logo-emoji">🦞</div>
+            <h1>小龙虾 <span class="brand">OpenClaw</span></h1>
+            <p class="tagline">智能 AI Agent 一键安装程序</p>
+          </div>
+          <div class="welcome-info">
+            <div class="info-card">
+              <span class="info-icon">🔍</span>
+              <span>自动检测系统环境</span>
+            </div>
+            <div class="info-card">
+              <span class="info-icon">📦</span>
+              <span>自动安装所需组件</span>
+            </div>
+            <div class="info-card">
+              <span class="info-icon">🌐</span>
+              <span>自动配置国内镜像</span>
+            </div>
+            <div class="info-card">
+              <span class="info-icon">🚀</span>
+              <span>全程可视化操作</span>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-lg" id="btn-start">
+            开始安装
+            <span class="btn-arrow">→</span>
+          </button>
+          <p class="version-text">v1.0.0</p>
+        </div>
+      </div>
+
+      <!-- Page 1: Environment Detection -->
+      <div class="page" id="page-detect">
+        <div class="page-header">
+          <h2>📋 环境检测</h2>
+          <p>正在检测你的系统环境...</p>
+        </div>
+        <div class="check-list" id="check-list"></div>
+        <div class="detect-summary" id="detect-summary" style="display:none"></div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="btn-detect-back">返回</button>
+          <button class="btn btn-primary" id="btn-detect-next" disabled>继续安装</button>
+        </div>
+      </div>
+
+      <!-- Page 2: Component Installation -->
+      <div class="page" id="page-install">
+        <div class="page-header">
+          <h2>📦 组件安装</h2>
+          <p id="install-description">配置安装选项</p>
+        </div>
+
+        <div class="config-section" id="mirror-section" style="display:none">
+          <h3>🌐 选择 GitHub 镜像源</h3>
+          <p class="config-hint">由于无法直接连接 GitHub，请选择一个镜像源：</p>
+          <div class="radio-group" id="mirror-options">
+            <label class="radio-option selected">
+              <input type="radio" name="mirror" value="0" checked>
+              <span class="radio-mark"></span>
+              <span class="radio-label">gitclone.com</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="mirror" value="1">
+              <span class="radio-mark"></span>
+              <span class="radio-label">mirror.ghproxy.com</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="mirror" value="2">
+              <span class="radio-mark"></span>
+              <span class="radio-label">ghproxy.net</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="config-section" id="npm-section" style="display:none">
+          <h3>📦 选择 npm 源</h3>
+          <p class="config-hint">选择 npm 包下载源（推荐淘宝源）：</p>
+          <div class="radio-group" id="npm-options">
+            <label class="radio-option selected">
+              <input type="radio" name="npm" value="0" checked>
+              <span class="radio-mark"></span>
+              <span class="radio-label">淘宝源 (推荐)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="npm" value="1">
+              <span class="radio-mark"></span>
+              <span class="radio-label">腾讯源</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="npm" value="2">
+              <span class="radio-mark"></span>
+              <span class="radio-label">官方源 (需要代理)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="progress-area" id="progress-area" style="display:none">
+          <div class="progress-component" id="progress-node" style="display:none">
+            <div class="progress-label">
+              <span class="component-name">Node.js</span>
+              <span class="progress-percent" id="node-percent">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="node-progress"></div>
+            </div>
+            <p class="progress-message" id="node-message">等待安装...</p>
+          </div>
+          <div class="progress-component" id="progress-openclaw" style="display:none">
+            <div class="progress-label">
+              <span class="component-name">🦞 小龙虾 (OpenClaw)</span>
+              <span class="progress-percent" id="openclaw-percent">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="openclaw-progress"></div>
+            </div>
+            <p class="progress-message" id="openclaw-message">等待安装...</p>
+          </div>
+        </div>
+
+        <div class="log-area" id="log-area" style="display:none">
+          <div class="log-header">
+            <span>安装日志</span>
+            <button class="btn-toggle-log" id="btn-toggle-log">展开</button>
+          </div>
+          <div class="log-content" id="log-content"></div>
+        </div>
+
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-install-start">开始安装</button>
+          <button class="btn btn-primary" id="btn-install-next" style="display:none" disabled>下一步</button>
+        </div>
+      </div>
+
+      <!-- Page 3: Configuration / Onboarding -->
+      <div class="page" id="page-config">
+        <div class="page-header">
+          <h2>🎯 配置小龙虾</h2>
+          <p>安装完成！现在可以配置你的 AI Agent</p>
+        </div>
+        <div class="config-content">
+          <div class="config-card">
+            <div class="config-card-icon">🤖</div>
+            <h3>配置向导</h3>
+            <p>配置 AI 模型、消息通道和后台服务</p>
+            <button class="btn btn-primary" id="btn-onboarding">启动配置向导</button>
+            <p class="config-note">将在终端中打开交互式配置</p>
+          </div>
+          <div class="config-card">
+            <div class="config-card-icon">⏭️</div>
+            <h3>稍后配置</h3>
+            <p>跳过此步骤，之后运行命令进行配置</p>
+            <button class="btn btn-secondary" id="btn-skip-config">跳过</button>
+            <p class="config-note"><code>openclaw onboard</code></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 4: Complete -->
+      <div class="page" id="page-complete">
+        <div class="complete-content">
+          <div class="success-icon">✅</div>
+          <h2>安装完成！</h2>
+          <p class="success-subtitle">小龙虾已成功安装到你的电脑</p>
+          <div class="action-cards">
+            <button class="action-card" id="btn-dashboard">
+              <span class="action-icon">🖥️</span>
+              <span class="action-label">打开控制面板</span>
+              <span class="action-hint">openclaw dashboard</span>
+            </button>
+            <button class="action-card" id="btn-gateway">
+              <span class="action-icon">🚀</span>
+              <span class="action-label">启动网关</span>
+              <span class="action-hint">openclaw gateway</span>
+            </button>
+          </div>
+          <div class="commands-ref">
+            <h3>常用命令</h3>
+            <div class="command-row"><code>openclaw status</code><span>查看状态</span></div>
+            <div class="command-row"><code>openclaw gateway</code><span>启动网关</span></div>
+            <div class="command-row"><code>openclaw dashboard</code><span>打开控制面板</span></div>
+            <div class="command-row"><code>openclaw --help</code><span>查看帮助</span></div>
+          </div>
+          <div class="links-row">
+            <a href="#" class="link-btn" data-url="https://docs.openclaw.ai">📖 文档</a>
+            <a href="#" class="link-btn" data-url="https://discord.com/invite/clawd">💬 社区</a>
+            <a href="#" class="link-btn" data-url="https://github.com/cyberpinkman/openclaw-easy-deploy/issues">🐛 反馈</a>
+          </div>
+          <button class="btn btn-secondary" id="btn-close" style="margin-top:16px">关闭安装程序</button>
+        </div>
+      </div>
+
+      <!-- Error page -->
+      <div class="page" id="page-error">
+        <div class="error-content">
+          <div class="error-icon">❌</div>
+          <h2>安装失败</h2>
+          <p class="error-detail" id="error-detail">安装过程中遇到错误</p>
+          <div class="error-help">
+            <p>你可以尝试：</p>
+            <ol>
+              <li>检查网络连接</li>
+              <li>确保有足够的磁盘空间</li>
+              <li>关闭后重新运行安装程序</li>
+            </ol>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btn-retry">重试</button>
+            <a href="#" class="link-btn" data-url="https://github.com/cyberpinkman/openclaw-easy-deploy/issues">报告问题</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

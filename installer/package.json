@@ -1,0 +1,53 @@
+{
+  "name": "openclaw-installer",
+  "version": "1.0.0",
+  "description": "🦞 小龙虾 OpenClaw 一键安装程序",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:mac:universal": "electron-builder --mac --universal",
+    "build:win": "electron-builder --win",
+    "build:win:x64": "electron-builder --win --x64",
+    "build:win:arm64": "electron-builder --win --arm64"
+  },
+  "author": "cyberpinkman",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.openclaw.installer",
+    "productName": "OpenClaw 安装程序",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "installerLanguages": [
+        "zh_CN"
+      ]
+    },
+    "dmg": {
+      "title": "OpenClaw 安装程序"
+    },
+    "files": [
+      "src/**/*"
+    ]
+  }
+}
