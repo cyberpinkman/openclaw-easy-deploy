@@ -4,6 +4,8 @@
 
 const { exec, execSync, spawn } = require('child_process');
 const { shell } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const installState = require('./install-state');
 
 /**
@@ -147,17 +149,19 @@ function runNpmInstallSudo(onProgress) {
  * Launch OpenClaw Dashboard (opens browser)
  */
 async function launchDashboard() {
+  const resolved = resolveOpenClawCommand();
+
+  if (!resolved) {
+    shell.openExternal('http://127.0.0.1:18789');
+    return { success: true, warning: '未找到 openclaw 命令，已尝试直接打开控制台地址' };
+  }
+
   try {
-    const child = spawn('openclaw', ['dashboard'], {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
+    await spawnDetached(resolved.command, ['dashboard'], resolved.options);
     return { success: true };
   } catch (err) {
-    // Fallback: open URL directly
     shell.openExternal('http://127.0.0.1:18789');
-    return { success: true };
+    return { success: true, warning: err.message || '启动 dashboard 失败，已尝试直接打开控制台地址' };
   }
 }
 
@@ -165,12 +169,17 @@ async function launchDashboard() {
  * Launch OpenClaw Gateway
  */
 async function launchGateway() {
+  const resolved = resolveOpenClawCommand();
+
+  if (!resolved) {
+    return {
+      success: false,
+      error: '未找到 openclaw 命令。请关闭安装器后重新打开终端，确认 `openclaw --version` 可以运行。',
+    };
+  }
+
   try {
-    const child = spawn('openclaw', ['gateway'], {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
+    await spawnDetached(resolved.command, ['gateway'], resolved.options);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -215,6 +224,83 @@ function refreshPathWindows() {
       process.env.PATH = `${machinePath};${userPath}`;
     } catch { /* ignore */ }
   }
+}
+
+function resolveOpenClawCommand() {
+  if (process.platform === 'win32') {
+    refreshPathWindows();
+
+    const candidates = [];
+
+    try {
+      const whereResult = execSync('where openclaw', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }).trim();
+      const whereCandidates = whereResult.split(/\r?\n/).filter(Boolean);
+      candidates.push(...whereCandidates);
+    } catch { /* ignore */ }
+
+    try {
+      const npmPrefix = execSync('npm prefix -g', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }).trim();
+      if (npmPrefix) {
+        candidates.push(path.join(npmPrefix, 'openclaw.cmd'));
+        candidates.push(path.join(npmPrefix, 'openclaw'));
+      }
+    } catch { /* ignore */ }
+
+    if (process.env.APPDATA) {
+      candidates.push(path.join(process.env.APPDATA, 'npm', 'openclaw.cmd'));
+      candidates.push(path.join(process.env.APPDATA, 'npm', 'openclaw'));
+    }
+
+    const found = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+    if (found) {
+      return { command: found, options: { shell: false } };
+    }
+
+    return null;
+  }
+
+  try {
+    const binPath = execSync('which openclaw', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim();
+    if (binPath) {
+      return { command: binPath, options: { shell: false } };
+    }
+  } catch { /* ignore */ }
+
+  return { command: 'openclaw', options: { shell: false } };
+}
+
+function spawnDetached(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: 'ignore',
+      ...options,
+    });
+
+    child.once('spawn', () => {
+      if (settled) return;
+      settled = true;
+      child.unref();
+      resolve();
+    });
+
+    child.once('error', (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
+  });
 }
 
 module.exports = { install, launchDashboard, launchGateway, runOnboarding };

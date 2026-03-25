@@ -131,8 +131,18 @@
   $('#btn-skip-config').addEventListener('click', () => showPage('complete'));
 
   // --- Complete page ---
-  $('#btn-dashboard').addEventListener('click', () => window.installer.launchDashboard());
-  $('#btn-gateway').addEventListener('click', () => window.installer.launchGateway());
+  $('#btn-dashboard').addEventListener('click', async () => {
+    const result = await window.installer.launchDashboard();
+    if (result && result.warning) {
+      showError(`控制面板已尝试打开，但安装器没有直接调用成功：${result.warning}`);
+    }
+  });
+  $('#btn-gateway').addEventListener('click', async () => {
+    const result = await window.installer.launchGateway();
+    if (result && !result.success) {
+      showError(`网关启动失败：${result.error || '未知错误'}`);
+    }
+  });
   $('#btn-close').addEventListener('click', () => window.installer.quitApp());
 
   // --- Error page ---
