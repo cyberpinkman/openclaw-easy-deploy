@@ -12,13 +12,12 @@
 
 ## 🚀 快速开始
 
-### 方式一：安装程序（推荐，零基础用户首选）
+### 方式一：安装程序（当前推荐 Windows 用户使用）
 
 下载安装程序，**双击运行**，全程鼠标操作，无需任何命令行知识。
 
 | 系统 | 下载链接 |
 |------|----------|
-| Mac (.dmg) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) |
 | Windows (.exe) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) |
 
 安装程序会自动帮你：
@@ -30,6 +29,8 @@
 - 🎯 启动配置向导
 
 **全程可视化**，有进度条、有弹窗提示，你只需要点击按钮即可。
+
+> ⚠️ macOS 图形安装包暂时下线，原因是正式的 Apple Developer 签名和 notarization 流程仍在准备中。为了避免 Mac 用户遇到“安装包无法打开”之类的系统拦截问题，当前请先使用下面的命令行安装方式。
 
 安装程序内显示的开发者信息：
 
@@ -43,7 +44,7 @@
 
 ---
 
-### 方式二：命令行安装（有终端基础的用户）
+### 方式二：命令行安装（当前 Mac 用户请使用此方式）
 
 #### Mac 用户
 
