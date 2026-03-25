@@ -1,6 +1,6 @@
 {
   "name": "openclaw-installer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "🦞 小龙虾 OpenClaw 一键安装程序",
   "main": "src/main/index.js",
   "scripts": {
@@ -29,7 +29,7 @@
     "directories": {
       "output": "dist"
     },
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "artifactName": "OpenClaw-Installer-${version}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "src/renderer/assets/icon.icns",
