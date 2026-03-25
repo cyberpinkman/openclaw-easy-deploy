@@ -9,6 +9,7 @@
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:mac:universal": "electron-builder --mac --universal",
+    "build:mac:release": "node scripts/check-macos-release-env.js && electron-builder --mac --universal",
     "build:win": "electron-builder --win",
     "build:win:x64": "electron-builder --win --x64",
     "build:win:arm64": "electron-builder --win --arm64"
@@ -16,6 +17,7 @@
   "author": "Pink 和他的 Codex <cyberpink.xx@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
   },
@@ -23,12 +25,18 @@
     "appId": "com.openclaw.installer",
     "productName": "OpenClaw 安装程序",
     "copyright": "Copyright © 2026 Pink 和他的 Codex",
+    "afterSign": "scripts/notarize.js",
     "directories": {
       "output": "dist"
     },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "src/renderer/assets/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "target": [
         "dmg"
       ]

@@ -43,9 +43,17 @@ npm ci
 
 ### macOS
 
+本地测试构建：
+
 ```bash
 npm run build:mac
 npm run build:mac:universal
+```
+
+正式发布构建：
+
+```bash
+npm run build:mac:release
 ```
 
 ### Windows
@@ -85,7 +93,44 @@ npm run build:win:arm64
 - `CSC_LINK`
 - `CSC_KEY_PASSWORD`
 
-未配置时也可以正常打包，但产物会是未签名版本。
+项目当前已经补了：
+
+- Hardened Runtime
+- `entitlements` / `entitlementsInherit`
+- `afterSign` notarization 钩子
+- `build:mac:release` 环境变量前置检查
+
+注意：
+
+- `npm run build:mac` 和 `npm run build:mac:universal` 仍可用于本地测试
+- `npm run build:mac:release` 用于正式发布，缺少签名/公证环境变量时会直接失败
+- 本地测试构建如果没有证书，产物不应上传给公开用户
+
+推荐先在 shell 中导出：
+
+```bash
+export APPLE_ID="your-apple-id@example.com"
+export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_TEAM_ID="YOURTEAMID"
+export CSC_LINK="/absolute/path/to/Developer_ID_Application.p12"
+export CSC_KEY_PASSWORD="your-p12-password"
+```
+
+然后执行：
+
+```bash
+npm run build:mac:release
+```
+
+构建完成后，正式发布前至少做以下验证：
+
+```bash
+codesign --verify --deep --strict --verbose=2 "dist/OpenClaw 安装程序.app"
+spctl -a -vv "dist/OpenClaw 安装程序.app"
+xcrun stapler validate "dist/OpenClaw 安装程序-1.0.0-universal.dmg"
+```
+
+如果 `spctl` 仍提示拒绝，或者 `codesign` / `stapler` 校验失败，不要上传到 GitHub Releases。
 
 ## Windows 签名
 
@@ -117,10 +162,11 @@ npm run build:win:arm64
 2. 在 `installer/` 里执行 `npm ci`
 3. 构建目标平台产物
 4. 在一台干净机器上做安装/修复/卸载回归
-5. 上传到 GitHub Releases 和 Gitee Releases
-6. 更新 README 下载说明或 release note
+5. 对 macOS 产物额外执行 `codesign` / `spctl` / `stapler validate`
+6. 上传到 GitHub Releases 和 Gitee Releases
+7. 更新 README 下载说明或 release note
 
 ## 当前已知非阻塞项
 
-- 如果没有真实签名证书，公开用户第一次安装时仍会看到系统安全提示
+- 如果没有真实签名证书和 notarization，公开用户下载到的 mac 安装包可能直接被 Gatekeeper 判定为损坏或不可打开
 - 目前默认发布流程更适合维护者手动执行，尚未接 CI/CD 自动发版
