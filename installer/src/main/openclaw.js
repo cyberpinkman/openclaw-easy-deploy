@@ -49,10 +49,16 @@ async function install(onProgress) {
 
 function runNpmInstall(onProgress, isSudo) {
   return new Promise((resolve) => {
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const child = spawn(npmCmd, ['install', '-g', 'openclaw@latest'], {
-      env: { ...process.env, SHARP_IGNORE_GLOBAL_LIBVIPS: '1' },
+    const resolvedNpm = resolveNpmCommand();
+    if (!resolvedNpm) {
+      resolve({ success: false, error: '未找到 npm 命令。请先确认 Node.js 已正确安装。' });
+      return;
+    }
+
+    const child = spawn(resolvedNpm.command, ['install', '-g', 'openclaw@latest'], {
+      env: buildSpawnEnv({ SHARP_IGNORE_GLOBAL_LIBVIPS: '1' }),
       stdio: ['pipe', 'pipe', 'pipe'],
+      ...resolvedNpm.options,
     });
 
     let output = '';
@@ -226,6 +232,69 @@ function refreshPathWindows() {
   }
 }
 
+function buildSpawnEnv(extraEnv = {}) {
+  const env = { ...process.env, ...extraEnv };
+
+  if (process.platform !== 'win32') {
+    return env;
+  }
+
+  const normalized = {};
+  let pathValue = '';
+
+  for (const [key, value] of Object.entries(env)) {
+    if (/^path$/i.test(key)) {
+      pathValue = String(value ?? '');
+      continue;
+    }
+    normalized[key] = value == null ? '' : String(value);
+  }
+
+  normalized.Path = pathValue;
+  return normalized;
+}
+
+function resolveNpmCommand() {
+  if (process.platform === 'win32') {
+    refreshPathWindows();
+
+    const candidates = [];
+
+    try {
+      const whereResult = execSync('where npm', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }).trim();
+      candidates.push(...whereResult.split(/\r?\n/).filter(Boolean));
+    } catch { /* ignore */ }
+
+    try {
+      const npmPrefix = execSync('npm prefix -g', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }).trim();
+      if (npmPrefix) {
+        candidates.push(path.join(npmPrefix, 'npm.cmd'));
+        candidates.push(path.join(npmPrefix, 'npm'));
+      }
+    } catch { /* ignore */ }
+
+    if (process.env.APPDATA) {
+      candidates.push(path.join(process.env.APPDATA, 'npm', 'npm.cmd'));
+      candidates.push(path.join(process.env.APPDATA, 'npm', 'npm'));
+    }
+
+    const found = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+    if (found) {
+      return { command: found, options: { shell: false } };
+    }
+
+    return { command: 'npm.cmd', options: { shell: false } };
+  }
+
+  return { command: 'npm', options: { shell: false } };
+}
+
 function resolveOpenClawCommand() {
   if (process.platform === 'win32') {
     refreshPathWindows();
@@ -285,6 +354,7 @@ function spawnDetached(command, args, options = {}) {
     const child = spawn(command, args, {
       detached: true,
       stdio: 'ignore',
+      env: buildSpawnEnv(),
       ...options,
     });
 

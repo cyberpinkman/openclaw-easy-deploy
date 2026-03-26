@@ -1,6 +1,6 @@
 {
   "name": "openclaw-installer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "🦞 小龙虾 OpenClaw 一键安装程序",
   "main": "src/main/index.js",
   "scripts": {
