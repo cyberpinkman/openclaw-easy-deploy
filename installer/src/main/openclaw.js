@@ -309,9 +309,13 @@ function resolveNpmInstallSpawn() {
   }
 
   if (process.platform === 'win32') {
+    const cmdCommand = resolveWindowsCmdCommand();
+    if (!cmdCommand) {
+      return null;
+    }
     const npmCommand = resolvedNpm.command.includes(' ') ? `"${resolvedNpm.command}"` : resolvedNpm.command;
     return {
-      command: 'cmd.exe',
+      command: cmdCommand,
       args: ['/d', '/s', '/c', `${npmCommand} install -g openclaw@latest`],
       options: { shell: false },
     };
@@ -322,6 +326,25 @@ function resolveNpmInstallSpawn() {
     args: ['install', '-g', 'openclaw@latest'],
     options: resolvedNpm.options,
   };
+}
+
+function resolveWindowsCmdCommand() {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  const candidates = [];
+
+  if (process.env.ComSpec) {
+    candidates.push(process.env.ComSpec);
+  }
+
+  const systemRoot = process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows';
+  candidates.push(path.join(systemRoot, 'System32', 'cmd.exe'));
+  candidates.push(path.join(systemRoot, 'Sysnative', 'cmd.exe'));
+
+  const found = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+  return found || null;
 }
 
 function resolveOpenClawCommand() {
