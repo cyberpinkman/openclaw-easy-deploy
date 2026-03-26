@@ -147,6 +147,7 @@
 
   // --- Error page ---
   $('#btn-retry').addEventListener('click', () => {
+    resetInstallPageState();
     showPage('welcome');
   });
 
@@ -309,6 +310,8 @@
   function preparInstallPage() {
     const { needNode, needGitMirror, needOpenClaw } = state;
 
+    resetInstallPageState();
+
     // Show mirror/npm selection if needed
     if (needGitMirror) {
       $('#mirror-section').style.display = '';
@@ -411,6 +414,37 @@
     } finally {
       state.installing = false;
     }
+  }
+
+  function resetInstallPageState() {
+    state.installing = false;
+
+    const installBtn = $('#btn-install-start');
+    installBtn.disabled = false;
+    installBtn.textContent = '开始安装';
+    installBtn.style.display = '';
+
+    $('#btn-install-next').style.display = 'none';
+    $('#btn-install-next').disabled = true;
+
+    $('#progress-area').style.display = 'none';
+    $('#log-area').style.display = 'none';
+    $('#log-content').innerHTML = '';
+
+    $('#node-progress').style.width = '0%';
+    $('#node-percent').textContent = '0%';
+    $('#node-message').textContent = '等待安装...';
+    $('#node-progress').classList.remove('done');
+
+    $('#openclaw-progress').style.width = '0%';
+    $('#openclaw-percent').textContent = '0%';
+    $('#openclaw-message').textContent = '等待安装...';
+    $('#openclaw-progress').classList.remove('done');
+
+    $('#progress-node').style.display = 'none';
+    $('#progress-openclaw').style.display = 'none';
+
+    $('#install-description').textContent = '配置安装选项';
   }
 
   // ===== Progress Updates =====

@@ -49,16 +49,17 @@ async function install(onProgress) {
 
 function runNpmInstall(onProgress, isSudo) {
   return new Promise((resolve) => {
-    const resolvedNpm = resolveNpmCommand();
-    if (!resolvedNpm) {
+    const resolvedSpawn = resolveNpmInstallSpawn();
+    if (!resolvedSpawn) {
       resolve({ success: false, error: '未找到 npm 命令。请先确认 Node.js 已正确安装。' });
       return;
     }
 
-    const child = spawn(resolvedNpm.command, ['install', '-g', 'openclaw@latest'], {
+    const child = spawn(resolvedSpawn.command, resolvedSpawn.args, {
       env: buildSpawnEnv({ SHARP_IGNORE_GLOBAL_LIBVIPS: '1' }),
       stdio: ['pipe', 'pipe', 'pipe'],
-      ...resolvedNpm.options,
+      windowsHide: true,
+      ...resolvedSpawn.options,
     });
 
     let output = '';
@@ -299,6 +300,28 @@ function resolveNpmCommand() {
   }
 
   return { command: 'npm', options: { shell: false } };
+}
+
+function resolveNpmInstallSpawn() {
+  const resolvedNpm = resolveNpmCommand();
+  if (!resolvedNpm) {
+    return null;
+  }
+
+  if (process.platform === 'win32') {
+    const npmCommand = resolvedNpm.command.includes(' ') ? `"${resolvedNpm.command}"` : resolvedNpm.command;
+    return {
+      command: 'cmd.exe',
+      args: ['/d', '/s', '/c', `${npmCommand} install -g openclaw@latest`],
+      options: { shell: false },
+    };
+  }
+
+  return {
+    command: resolvedNpm.command,
+    args: ['install', '-g', 'openclaw@latest'],
+    options: resolvedNpm.options,
+  };
 }
 
 function resolveOpenClawCommand() {
