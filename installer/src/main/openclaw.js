@@ -243,6 +243,12 @@ function buildSpawnEnv(extraEnv = {}) {
   let pathValue = '';
 
   for (const [key, value] of Object.entries(env)) {
+    // Windows process.env 里可能带有像 '=C:' 这样的伪环境变量。
+    // 这些键不能原样传给 spawn 的 env，否则会触发 EINVAL。
+    if (key.startsWith('=')) {
+      continue;
+    }
+
     if (/^path$/i.test(key)) {
       pathValue = String(value ?? '');
       continue;
