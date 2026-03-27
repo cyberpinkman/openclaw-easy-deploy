@@ -201,14 +201,24 @@ async function runOnboarding() {
     installState.ensureBackup('systemProxy', installState.captureSystemProxyState);
 
     if (process.platform === 'darwin') {
+      const resolved = resolveOpenClawCommand();
+      if (!resolved) {
+        return { success: false, error: '未找到 openclaw 命令。请确认安装已完成后重试。' };
+      }
+
       execSync(
         `osascript -e 'tell application "Terminal" to do script "openclaw onboard --install-daemon"'`,
         { encoding: 'utf-8' }
       );
     } else if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', 'cmd', '/k', 'openclaw onboard --install-daemon'], {
-        detached: true,
-        stdio: 'ignore',
+      const resolved = resolveOpenClawCommand();
+      if (!resolved) {
+        return { success: false, error: '未找到 openclaw 命令。请确认安装已完成后重试。' };
+      }
+
+      await spawnDetached(resolved.command, ['onboard', '--install-daemon'], {
+        ...resolved.options,
+        windowsHide: true,
       });
     }
     return { success: true };

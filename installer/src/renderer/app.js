@@ -124,7 +124,11 @@
 
   // --- Config page ---
   $('#btn-onboarding').addEventListener('click', async () => {
-    await window.installer.runOnboarding();
+    const result = await window.installer.runOnboarding();
+    if (!result || !result.success) {
+      showError(`配置向导启动失败：${(result && result.error) || '未知错误'}`);
+      return;
+    }
     showPage('complete');
   });
 
