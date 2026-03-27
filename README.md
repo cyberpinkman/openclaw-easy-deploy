@@ -50,40 +50,15 @@
 
 打开「终端」，复制粘贴以下命令：
 
+**方式一：Gitee（国内推荐）**
+```bash
+curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/install.sh | bash
+```
+
 **GitHub**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash
 ```
-
-#### Windows 用户
-
-请按下面 3 步操作：
-
-**第 1 步：以管理员身份打开 PowerShell**
-
-在开始菜单里搜索 `PowerShell`，右键选择"**以管理员身份运行**"。
-
-**第 2 步：先运行授权命令**
-
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-看到提示后输入 `Y` 并回车。
-
-> 💡 这条授权命令通常只需要执行一次，后面再次安装或重装时一般不用重复输入。
-
-**第 3 步：再运行一键安装命令**
-
-**GitHub**
-```powershell
-$tmp = Join-Path $env:TEMP "openclaw-install.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
-```
-
-> 💡 提示：脚本会自动检测 PowerShell 版本，如版本过低会提示升级到 PowerShell 7（支持更好的中文显示）。如果仍有编码问题，可使用英文版：
-> ```powershell
-> $tmp = Join-Path $env:TEMP "openclaw-install-en.ps1"; iwr -useb https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/windows/install-en.ps1 -OutFile $tmp; powershell -NoExit -ExecutionPolicy Bypass -File $tmp
-> ```
 
 ---
 
