@@ -85,40 +85,6 @@ npm uninstall -g openclaw
 
 ---
 
-## 🛠️ 安装程序构建与发布
-
-图形安装器工程位于 [installer/](./installer)，目前已经补齐了自定义图标资源：
-
-- macOS 图标：`installer/src/renderer/assets/icon.icns`
-- Windows 图标：`installer/src/renderer/assets/icon.ico`
-- 通用源图：`installer/src/renderer/assets/icon.png`
-
-常用构建命令：
-
-```bash
-cd installer
-npm ci
-npm run build:mac
-npm run build:mac:universal
-npm run build:win:x64
-npm run build:win:arm64
-```
-
-如果你要做正式发布，建议先看：
-
-- [installer/RELEASE.md](./installer/RELEASE.md)
-
-这里面补了：
-
-- 打包产物矩阵
-- macOS / Windows 签名说明
-- 上架前自测清单
-- 发布时需要准备的环境变量和证书信息
-
-> 💡 这里的“开发者：Pink 和他的 Codex”是安装器里展示给用户看的作者信息，不等同于代码签名。真正的签名依赖 Apple Developer ID 或 Windows Authenticode 证书。
-
----
-
 ## 🔧 独立脚本（高级用户）
 
 如果遇到问题，可以使用独立脚本手动处理：
