@@ -16,6 +16,7 @@ NC='\033[0m'
 
 # 默认 Node.js 版本（会被自动调整）
 NODE_VERSION="24.14.0"
+NODE_INSTALL_LOG="${TMPDIR:-/tmp}/openclaw-node-install-$(date +%Y%m%d-%H%M%S).log"
 
 # 检测系统架构
 ARCH=$(uname -m)
@@ -85,6 +86,29 @@ print_info() {
     echo -e "  ${BLUE}ℹ${NC} $1"
 }
 
+init_install_log() {
+    : > "$NODE_INSTALL_LOG"
+    {
+        echo "OpenClaw Node.js install log"
+        echo "Timestamp: $(date '+%F %T')"
+        echo "macOS: ${MACOS_VERSION}"
+        echo "arch: ${ARCH}"
+        echo "shell: $SHELL"
+        echo ""
+    } >> "$NODE_INSTALL_LOG"
+}
+
+run_logged() {
+    local description="$1"
+    shift
+
+    print_info "$description"
+    echo "[$(date '+%F %T')] $description" >> "$NODE_INSTALL_LOG"
+
+    "$@" 2>&1 | tee -a "$NODE_INSTALL_LOG"
+    return ${PIPESTATUS[0]}
+}
+
 # 安全读取用户输入
 safe_read() {
     local prompt="$1"
@@ -143,14 +167,19 @@ verify_node_works() {
 # 使用 Homebrew 安装 Node.js
 install_via_homebrew() {
     print_step "使用 Homebrew 安装 Node.js 24"
+    init_install_log
 
     if ! command -v brew &> /dev/null; then
         print_info "Homebrew 未安装，正在安装..."
 
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        echo "[$(date '+%F %T')] 安装 Homebrew" >> "$NODE_INSTALL_LOG"
+        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh 2>> "$NODE_INSTALL_LOG" | /bin/bash 2>&1 | tee -a "$NODE_INSTALL_LOG"
+        local curl_status=${PIPESTATUS[0]}
+        local bash_status=${PIPESTATUS[1]}
 
-        if [ $? -ne 0 ]; then
+        if [ "$curl_status" -ne 0 ] || [ "$bash_status" -ne 0 ]; then
             print_error "Homebrew 安装失败"
+            print_info "Node 安装日志: $NODE_INSTALL_LOG"
             return 1
         fi
 
@@ -166,10 +195,7 @@ install_via_homebrew() {
     export HOMEBREW_NO_AUTO_UPDATE=1
     export HOMEBREW_NO_INSTALL_FROM_API=1
 
-    print_info "正在安装 Node.js..."
-    brew install node
-
-    if [ $? -eq 0 ]; then
+    if run_logged "正在安装 Node.js..." brew install node; then
         # 验证架构和运行状态
         if verify_node_works; then
             print_ok "Node.js 安装成功且运行正常"
@@ -193,20 +219,17 @@ install_via_official() {
 
     print_info "系统架构: $ARCH_NAME"
     print_info "下载地址: $download_url"
-    print_info "正在下载..."
 
     local tmp_file="/tmp/node-installer.pkg"
 
-    if ! curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+    if ! run_logged "正在下载官方 Node.js 包..." curl -fsSL "$download_url" -o "$tmp_file"; then
         print_error "下载失败"
+        print_info "Node 安装日志: $NODE_INSTALL_LOG"
         print_info "请手动下载: https://nodejs.org"
         return 1
     fi
 
-    print_info "正在安装..."
-    print_info "请输入管理员密码以继续安装..."
-
-    if sudo installer -pkg "$tmp_file" -target / 2>/dev/null; then
+    if run_logged "正在安装官方 Node.js 包 (需要输入管理员密码)..." sudo installer -pkg "$tmp_file" -target /; then
         rm -f "$tmp_file"
         
         # 刷新 PATH
@@ -219,10 +242,12 @@ install_via_official() {
         else
             print_error "安装成功但 Node.js 无法运行"
             print_error "可能存在系统兼容性问题"
+            print_info "Node 安装日志: $NODE_INSTALL_LOG"
             return 1
         fi
     else
         print_error "安装失败"
+        print_info "Node 安装日志: $NODE_INSTALL_LOG"
         rm -f "$tmp_file"
         return 1
     fi
@@ -309,6 +334,7 @@ verify_installation() {
     else
         print_error "Node.js 未找到，可能需要重启终端"
         print_info "请关闭当前终端窗口，重新打开后再试"
+        print_info "Node 安装日志: $NODE_INSTALL_LOG"
         return 1
     fi
 }

@@ -60,6 +60,7 @@ NPM_NAMES=(
 NEED_NODE=false
 NEED_GIT_MIRROR=false
 NEED_OPENCLAW=false
+NODE_INSTALL_LOG=""
 
 # 打印函数
 print_header() {
@@ -98,6 +99,32 @@ print_warn() {
 
 print_info() {
     echo -e "  ${BLUE}ℹ${NC} $1"
+}
+
+# 初始化 Node.js 安装日志
+init_node_install_log() {
+    NODE_INSTALL_LOG="${TMPDIR:-/tmp}/openclaw-node-install-$(date +%Y%m%d-%H%M%S).log"
+    : > "$NODE_INSTALL_LOG"
+    {
+        echo "OpenClaw Node.js install log"
+        echo "Timestamp: $(date '+%F %T')"
+        echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo '未知')"
+        echo "arch: $(uname -m)"
+        echo "shell: $SHELL"
+        echo ""
+    } >> "$NODE_INSTALL_LOG"
+}
+
+# 运行命令并把输出同时写到日志
+run_logged() {
+    local description="$1"
+    shift
+
+    print_info "$description"
+    echo "[$(date '+%F %T')] $description" >> "$NODE_INSTALL_LOG"
+
+    "$@" 2>&1 | tee -a "$NODE_INSTALL_LOG"
+    return ${PIPESTATUS[0]}
 }
 
 print_success_box() {
@@ -342,6 +369,8 @@ check_node() {
 
 # 安装 Node.js
 install_node() {
+    init_node_install_log
+
     # 检测 macOS 版本，决定使用哪个 Node.js 版本
     local macos_version=$(sw_vers -productVersion 2>/dev/null || echo "10.0")
     local macos_major=$(echo "$macos_version" | cut -d. -f1)
@@ -400,10 +429,14 @@ install_node() {
         print_info "Homebrew 未安装，正在安装..."
         print_info "这可能需要几分钟，请耐心等待..."
 
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        echo "[$(date '+%F %T')] 安装 Homebrew" >> "$NODE_INSTALL_LOG"
+        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh 2>> "$NODE_INSTALL_LOG" | /bin/bash 2>&1 | tee -a "$NODE_INSTALL_LOG"
+        local curl_status=${PIPESTATUS[0]}
+        local bash_status=${PIPESTATUS[1]}
 
-        if [ $? -ne 0 ]; then
+        if [ "$curl_status" -ne 0 ] || [ "$bash_status" -ne 0 ]; then
             print_error "Homebrew 安装失败"
+            print_info "Node 安装日志: $NODE_INSTALL_LOG"
             show_node_install_help
             return 1
         fi
@@ -423,10 +456,7 @@ install_node() {
     export HOMEBREW_NO_AUTO_UPDATE=1
     export HOMEBREW_NO_INSTALL_FROM_API=1
 
-    print_info "正在通过 Homebrew 安装 Node.js..."
-    print_info "这可能需要几分钟..."
-
-    if brew install node 2>&1; then
+    if run_logged "正在通过 Homebrew 安装 Node.js..." brew install node; then
         # 验证安装和架构兼容性
         if command -v node &> /dev/null; then
             local node_path=$(which node)
@@ -459,11 +489,9 @@ install_node() {
     local tmp_file="/tmp/node-installer.pkg"
 
     print_info "下载地址: $download_url"
-    print_info "正在下载..."
 
-    if curl -fsSL "$download_url" -o "$tmp_file" 2>&1; then
-        print_info "正在安装... (需要输入管理员密码)"
-        if sudo installer -pkg "$tmp_file" -target / 2>&1; then
+    if run_logged "正在下载官方 Node.js 包..." curl -fsSL "$download_url" -o "$tmp_file"; then
+        if run_logged "正在安装官方 Node.js 包 (需要输入管理员密码)..." sudo installer -pkg "$tmp_file" -target /; then
             rm -f "$tmp_file"
             # 刷新 PATH
             export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
@@ -480,6 +508,7 @@ install_node() {
                 else
                     print_error "Node.js 安装成功但无法运行"
                     print_error "可能存在系统兼容性问题，请联系技术支持"
+                    print_info "Node 安装日志: $NODE_INSTALL_LOG"
                     show_node_install_help
                     return 1
                 fi
@@ -489,6 +518,7 @@ install_node() {
     fi
 
     print_error "Node.js 安装失败"
+    print_info "Node 安装日志: $NODE_INSTALL_LOG"
     show_node_install_help
     return 1
 }
@@ -506,6 +536,11 @@ show_node_install_help() {
     echo ""
     echo "  方法 2: 手动运行安装脚本"
     echo "    curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/2-install-node.sh | bash"
+    echo ""
+    if [ -n "$NODE_INSTALL_LOG" ]; then
+        echo "  本次安装日志:"
+        echo "    $NODE_INSTALL_LOG"
+    fi
     echo ""
     echo -e "${YELLOW}────────────────────────────────────────${NC}"
 }
