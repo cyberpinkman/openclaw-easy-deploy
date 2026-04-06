@@ -136,9 +136,9 @@ npm uninstall -g openclaw
 
 ### 安装 Node.js 失败
 
-安装程序会优先尝试官方安装包，并在安装后自动检测 Node.js 是否可运行。
+安装程序和一键脚本都会优先尝试官方安装包，并在安装后自动检测 Node.js 是否可运行。
 
-**Mac**: 如果失败，先确保已安装 Xcode 命令行工具：
+**Mac**: 大多数情况下不需要提前手动安装 Xcode 命令行工具；如果后续安装日志明确提示依赖编译失败，再执行：
 ```bash
 xcode-select --install
 ```

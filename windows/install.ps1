@@ -392,19 +392,7 @@ function Install-Node {
 
     $installed = $false
 
-    # 方法 1: winget
-    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
-    if ($wingetCmd) {
-        Write-Info "使用 winget 安装 Node.js 24..."
-        try {
-            winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements
-            $installed = $true
-        } catch {
-            Write-Warn "winget 安装失败: $_"
-        }
-    }
-
-    # 方法 2: 官方安装包（根据架构选择）
+    # 方法 1: 官方安装包（优先，最适合小白）
     if (-not $installed) {
         Write-Info "下载官方安装包..."
 
@@ -424,6 +412,20 @@ function Install-Node {
         } catch {
             Write-Err "下载失败: $_"
             Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # 方法 2: winget（作为兜底）
+    if (-not $installed) {
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            Write-Info "官方安装包失败，尝试使用 winget..."
+            try {
+                winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements
+                $installed = $true
+            } catch {
+                Write-Warn "winget 安装失败: $_"
+            }
         }
     }
 

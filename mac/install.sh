@@ -28,7 +28,9 @@ NC='\033[0m'
 SCRIPT_VERSION="1.0.1"
 
 # Node.js 目标版本
-NODE_VERSION="24.14.0"
+NODE_LTS_VERSION="22.22.1"
+NODE_CURRENT_VERSION="24.14.0"
+NODE_VERSION="$NODE_CURRENT_VERSION"
 
 # 镜像源列表
 MIRROR_URLS=(
@@ -283,28 +285,14 @@ detect_environment() {
     print_ok "系统版本兼容 (macOS $os_version >= 10.15)"
 
     # ========== Xcode Command Line Tools 检查 ==========
-    # 升级 macOS 后经常损坏，导致 npm install 失败
+    # 对官方 Node.pkg 安装并非硬前置，只做提示，不阻断一键安装。
     print_info "检查 Xcode Command Line Tools..."
-    if ! xcode-select -p &> /dev/null; then
-        print_warn "Xcode Command Line Tools 未安装"
-        print_info "正在安装..."
-        xcode-select --install 2>/dev/null
-        echo ""
-        print_info "请在弹出的窗口中完成安装，然后重新运行此脚本"
-        return 1
+    if ! xcode-select -p &> /dev/null || ! xcrun --version &> /dev/null; then
+        print_warn "Xcode Command Line Tools 未安装或已损坏"
+        print_info "这不会阻止脚本继续安装；如果后续依赖编译失败，再按提示安装即可"
+    else
+        print_ok "Xcode Command Line Tools 正常"
     fi
-    
-    # 检查 xcrun 是否可用（升级 macOS 后经常损坏）
-    if ! xcrun --version &> /dev/null; then
-        print_warn "Xcode Command Line Tools 损坏（升级 macOS 后常见问题）"
-        print_info "正在修复..."
-        sudo xcode-select --reset 2>/dev/null
-        sudo xcode-select --install 2>/dev/null
-        echo ""
-        print_info "请在弹出的窗口中完成安装，然后重新运行此脚本"
-        return 1
-    fi
-    print_ok "Xcode Command Line Tools 正常"
 
     # 内存检查
     local total_mem=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
@@ -390,24 +378,15 @@ install_node() {
     fi
     
     # Node.js 版本兼容性：
-    # - Node.js 24.x: macOS 12+ (Monterey)
-    # - Node.js 22.x: macOS 10.15+ (Catalina)
-    # - Node.js 18.x: macOS 10.13+ (High Sierra) - 最后支持旧系统的LTS
-    
-    if [ "$macos_major" -lt 10 ] || ([ "$macos_major" -eq 10 ] && [ "$macos_minor" -lt 15 ]); then
-        # macOS 10.14 或更早
-        print_step "📦 第 2 步：安装 Node.js 18.x LTS"
-        print_warn "检测到 macOS $macos_version，Node.js 22+ 需要 macOS 10.15+"
-        print_info "将安装 Node.js 18.x LTS（最后一个支持你系统的版本）"
-        print_info "⚠ Node.js 18 将于 2025年4月结束支持，建议升级 macOS"
-        NODE_VERSION="18.20.8"
-    elif [ "$macos_major" -lt 12 ]; then
-        # macOS 10.15-11.x
+    # - Node.js 22.x: macOS 10.15-11.x
+    # - Node.js 24.x: macOS 12+
+    if [ "$macos_major" -lt 12 ]; then
         print_step "📦 第 2 步：安装 Node.js 22.x LTS"
         print_warn "检测到 macOS $macos_version，Node.js 24.x 需要 macOS 12+"
         print_info "将安装 Node.js 22.x LTS（兼容你的系统）"
-        NODE_VERSION="22.22.1"
+        NODE_VERSION="$NODE_LTS_VERSION"
     else
+        NODE_VERSION="$NODE_CURRENT_VERSION"
         print_step "📦 第 2 步：安装 Node.js $NODE_VERSION"
     fi
 
@@ -424,95 +403,64 @@ install_node() {
     print_info "系统架构: $arch_name"
     print_info "macOS 版本: $macos_version"
 
-    # 检查 Homebrew
-    if ! command -v brew &> /dev/null; then
-        print_info "Homebrew 未安装，正在安装..."
-        print_info "这可能需要几分钟，请耐心等待..."
+    # 官方 Node.js .pkg 是最稳定的安装路径，优先给小白使用。
+    local tmp_file="/tmp/node-installer.pkg"
+    local download_urls=(
+        "https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
+        "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
+    )
+    local downloaded=false
+    local download_url=""
 
-        echo "[$(date '+%F %T')] 安装 Homebrew" >> "$NODE_INSTALL_LOG"
-        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh 2>> "$NODE_INSTALL_LOG" | /bin/bash 2>&1 | tee -a "$NODE_INSTALL_LOG"
-        local curl_status=${PIPESTATUS[0]}
-        local bash_status=${PIPESTATUS[1]}
+    for candidate_url in "${download_urls[@]}"; do
+        download_url="$candidate_url"
+        print_info "下载地址: $download_url"
+        if run_logged "正在下载官方 Node.js 包..." curl -fL --connect-timeout 20 --retry 2 "$download_url" -o "$tmp_file"; then
+            downloaded=true
+            break
+        fi
+        rm -f "$tmp_file"
+        print_warn "下载失败，尝试下一个源..."
+    done
 
-        if [ "$curl_status" -ne 0 ] || [ "$bash_status" -ne 0 ]; then
-            print_error "Homebrew 安装失败"
+    if [ "$downloaded" = true ]; then
+        if run_logged "正在安装官方 Node.js 包 (需要输入管理员密码)..." sudo installer -pkg "$tmp_file" -target /; then
+            rm -f "$tmp_file"
+
+            # 刷新 PATH
+            export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+            local node_bin=""
+            if [ -x "/usr/local/bin/node" ]; then
+                node_bin="/usr/local/bin/node"
+            elif [ -x "/opt/homebrew/bin/node" ]; then
+                node_bin="/opt/homebrew/bin/node"
+            elif command -v node &> /dev/null; then
+                node_bin="$(command -v node)"
+            fi
+
+            if [ -n "$node_bin" ]; then
+                local version=$("$node_bin" -v 2>/dev/null)
+                print_ok "Node.js 安装成功: $version"
+
+                local npm_bin="${node_bin%/node}/npm"
+                if [ -x "$npm_bin" ]; then
+                    print_ok "npm 版本: $("$npm_bin" -v)"
+                elif command -v npm &> /dev/null; then
+                    print_ok "npm 版本: $(npm -v)"
+                fi
+
+                if "$node_bin" -e "console.log('OK')" &> /dev/null 2>&1; then
+                    print_ok "Node.js 运行正常"
+                    return 0
+                fi
+            fi
+
+            print_error "Node.js 安装成功但无法运行"
+            print_error "可能存在系统兼容性问题，请联系技术支持"
             print_info "Node 安装日志: $NODE_INSTALL_LOG"
             show_node_install_help
             return 1
-        fi
-
-        # 添加到 PATH
-        if [[ "$arch" == "arm64" ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-        else
-            eval "$(/usr/local/bin/brew shellenv)"
-        fi
-
-        print_ok "Homebrew 安装成功"
-    fi
-
-    # 跳过 Homebrew 更新（对小白用户来说经常卡住，且非必须）
-    # 禁用 Homebrew 自动更新（brew install 会自动触发 brew update）
-    export HOMEBREW_NO_AUTO_UPDATE=1
-    export HOMEBREW_NO_INSTALL_FROM_API=1
-
-    if run_logged "正在通过 Homebrew 安装 Node.js..." brew install node; then
-        # 验证安装和架构兼容性
-        if command -v node &> /dev/null; then
-            local node_path=$(which node)
-            local node_arch=$(file "$node_path" 2>/dev/null | grep -o 'arm64\|x86_64' | head -1)
-            
-            # 检查架构是否匹配
-            if [[ "$node_arch" == *"arm64"* && "$arch" == "arm64" ]] || [[ "$node_arch" == *"x86_64"* && "$arch" != "arm64" ]]; then
-                local version=$(node -v)
-                print_ok "Node.js 安装成功: $version"
-                print_ok "npm 版本: $(npm -v)"
-                # 测试 Node.js 是否能正常运行
-                if node -e "console.log('OK')" &> /dev/null; then
-                    print_ok "Node.js 运行正常"
-                    return 0
-                else
-                    print_warn "Node.js 已安装但无法运行，可能是架构不匹配"
-                    print_info "尝试使用官方安装包..."
-                fi
-            else
-                print_warn "检测到架构不匹配，尝试使用官方安装包..."
-            fi
-        fi
-    fi
-
-    # Homebrew 失败或架构不匹配，尝试官方安装包
-    print_warn "Homebrew 安装失败，尝试使用官方安装包..."
-
-    # Node.js .pkg 是通用安装包，支持 Intel 和 Apple Silicon
-    local download_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg"
-    local tmp_file="/tmp/node-installer.pkg"
-
-    print_info "下载地址: $download_url"
-
-    if run_logged "正在下载官方 Node.js 包..." curl -fsSL "$download_url" -o "$tmp_file"; then
-        if run_logged "正在安装官方 Node.js 包 (需要输入管理员密码)..." sudo installer -pkg "$tmp_file" -target /; then
-            rm -f "$tmp_file"
-            # 刷新 PATH
-            export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
-            
-            if command -v node &> /dev/null; then
-                local version=$(node -v)
-                print_ok "Node.js 安装成功: $version"
-                print_ok "npm 版本: $(npm -v)"
-                
-                # 测试 Node.js 是否能正常运行
-                if node -e "console.log('OK')" &> /dev/null 2>&1; then
-                    print_ok "Node.js 运行正常"
-                    return 0
-                else
-                    print_error "Node.js 安装成功但无法运行"
-                    print_error "可能存在系统兼容性问题，请联系技术支持"
-                    print_info "Node 安装日志: $NODE_INSTALL_LOG"
-                    show_node_install_help
-                    return 1
-                fi
-            fi
         fi
         rm -f "$tmp_file"
     fi

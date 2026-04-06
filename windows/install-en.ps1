@@ -219,13 +219,8 @@ function Install-Node {
     Write-Info "Architecture: $arch"
 
     $installed = $false
-    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
-    if ($wingetCmd) {
-        Write-Info "Using winget..."
-        try { winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements; $installed = $true }
-        catch { Write-Warn "winget failed: $_" }
-    }
 
+    # Prefer the official installer for beginner-friendly reliability.
     if (-not $installed) {
         Write-Info "Downloading official package..."
         $msiSuffix = if ($arch -eq "ARM64") { "-arm64" } else { "-x64" }
@@ -239,6 +234,15 @@ function Install-Node {
             Remove-Item $tmp -Force -ErrorAction SilentlyContinue
             $installed = $true
         } catch { Write-Err "Download failed: $_"; Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+
+    if (-not $installed) {
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            Write-Info "Official installer failed, trying winget..."
+            try { winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements; $installed = $true }
+            catch { Write-Warn "winget failed: $_" }
+        }
     }
 
     if ($installed) {
