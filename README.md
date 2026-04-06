@@ -18,7 +18,7 @@
 
 | 系统 | 下载链接 |
 |------|----------|
-| Windows (.exe) | [GitHub Releases](https://github.com/cyberpinkman/openclaw-easy-deploy/releases) |
+| Windows (.exe) | [下载 v1.0.8 安装器](https://github.com/cyberpinkman/openclaw-easy-deploy/releases/download/v1.0.8/OpenClaw-Installer-1.0.8-x64.exe) |
 
 安装程序会自动帮你：
 
@@ -178,6 +178,25 @@ openclaw onboard --install-daemon
 
 如果没有弹出新终端窗口，请尝试：
 - 检查系统是否拦截了 Terminal / PowerShell 启动
+- 手动在终端里运行 `openclaw onboard --install-daemon`
+
+### 安装后提示 `Missing config`
+
+这通常不是“没安装成功”，而是**还没有完成首次配置**。
+
+如果你看到类似下面的提示：
+
+```bash
+Missing config. Run openclaw setup or set gateway.mode=local
+```
+
+请直接执行：
+
+```bash
+openclaw onboard --install-daemon
+```
+
+完成配置向导后，再重新启动 OpenClaw 即可。
 - 关闭安装程序后重新打开再试
 - 直接在终端或 PowerShell 中手动运行上面的命令
 
