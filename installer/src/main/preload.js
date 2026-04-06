@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('installer', {
 
   // Utilities
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  copyText: (text) => ipcRenderer.invoke('copy-text', text),
   quitApp: () => ipcRenderer.invoke('quit-app'),
 
   // Progress listener

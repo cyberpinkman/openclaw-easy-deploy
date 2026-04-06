@@ -2,7 +2,7 @@
 // 🦞 OpenClaw Installer — Main Process
 // ============================================
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const path = require('path');
 const environment = require('./environment');
 const nodeInstaller = require('./node-installer');
@@ -105,4 +105,8 @@ ipcMain.handle('repair-install', async () => {
 
 // Utility
 ipcMain.handle('open-external', async (event, url) => shell.openExternal(url));
+ipcMain.handle('copy-text', async (event, text) => {
+  clipboard.writeText(String(text || ''));
+  return { success: true };
+});
 ipcMain.handle('quit-app', () => app.quit());

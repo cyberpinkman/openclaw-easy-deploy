@@ -2,14 +2,18 @@
 // Node.js Installation Module
 // ============================================
 
-const { exec, execSync, spawn } = require('child_process');
+const { execSync } = require('child_process');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
 
-const NODE_VERSION = '24.14.0';
+// Use a compatibility-aware strategy:
+// - Older supported systems stay on Node 22 LTS
+// - Modern systems use the current recommended 24.x line
+const NODE_LTS_VERSION = '22.22.1';
+const NODE_CURRENT_VERSION = '24.14.0';
 
 // China-friendly Node.js mirror
 const NODE_MIRROR = 'https://npmmirror.com/mirrors/node';
@@ -20,8 +24,6 @@ const NODE_OFFICIAL = 'https://nodejs.org/dist';
  */
 async function install(onProgress) {
   const platform = process.platform;
-  const arch = os.arch();
-
   onProgress({ stage: 'start', message: '正在准备安装 Node.js...' });
 
   // Determine the right Node.js version based on OS compatibility
@@ -29,15 +31,20 @@ async function install(onProgress) {
 
   if (versionError || !version) {
     onProgress({ stage: 'error', message: '系统不兼容', percent: 0 });
-    return { success: false, error: versionError || '无法确定适合的 Node.js 版本', incompatible: true };
+    return {
+      success: false,
+      error: versionError || '无法确定适合的 Node.js 版本',
+      errorCode: 'NODE_SYSTEM_INCOMPATIBLE',
+      incompatible: true,
+    };
   }
 
   onProgress({ stage: 'start', message: `将安装 Node.js ${version}...` });
 
   if (platform === 'darwin') {
-    return await installOnMac(version, arch, onProgress);
+    return await installOnMac(version, onProgress);
   } else if (platform === 'win32') {
-    return await installOnWindows(version, arch, onProgress);
+    return await installOnWindows(version, os.arch(), onProgress);
   }
 
   return { success: false, error: '不支持的操作系统' };
@@ -91,16 +98,15 @@ function determineNodeVersion() {
         };
       }
 
-      // macOS 10.15 - 11.x: Use Node 22.x LTS (supports 22.16+)
+      // macOS 10.15 - 11.x: stay on Node 22 LTS for maximum compatibility
       if (major < 12) {
-        return { version: '22.22.1', error: null };
+        return { version: NODE_LTS_VERSION, error: null };
       }
 
-      // macOS 12+: Use latest Node 24.x
-      return { version: NODE_VERSION, error: null };
+      // macOS 12+: use the current recommended 24.x line
+      return { version: NODE_CURRENT_VERSION, error: null };
     } catch {
-      // Can't determine version, try latest
-      return { version: NODE_VERSION, error: null };
+      return { version: NODE_CURRENT_VERSION, error: null };
     }
   }
 
@@ -117,37 +123,15 @@ function determineNodeVersion() {
       };
     }
 
-    return { version: NODE_VERSION, error: null };
+    return { version: NODE_CURRENT_VERSION, error: null };
   }
 
-  return { version: NODE_VERSION, error: null };
+  return { version: NODE_CURRENT_VERSION, error: null };
 }
 
 // ========== macOS Installation ==========
-async function installOnMac(version, arch, onProgress) {
-  // Method 1: Try Homebrew first
-  onProgress({ stage: 'checking', message: '检查 Homebrew...' });
-  const hasBrew = commandExists('brew');
-
-  if (hasBrew) {
-    onProgress({ stage: 'installing', message: '通过 Homebrew 安装 Node.js...', percent: 20 });
-    try {
-      execSync('HOMEBREW_NO_AUTO_UPDATE=1 brew install node', {
-        encoding: 'utf-8',
-        timeout: 300000,
-        env: { ...process.env, HOMEBREW_NO_AUTO_UPDATE: '1', HOMEBREW_NO_INSTALL_FROM_API: '1' },
-      });
-
-      if (verifyNode()) {
-        onProgress({ stage: 'done', message: 'Node.js 安装成功', percent: 100 });
-        return { success: true, version: getNodeVersion() };
-      }
-    } catch (err) {
-      onProgress({ stage: 'fallback', message: 'Homebrew 安装失败，切换到官方安装包...', percent: 30 });
-    }
-  }
-
-  // Method 2: Official .pkg installer
+async function installOnMac(version, onProgress) {
+  // Official .pkg is the most stable path for non-technical users.
   return await installFromPkg(version, onProgress);
 }
 
@@ -175,46 +159,33 @@ async function installFromPkg(version, onProgress) {
     // Cleanup
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
 
-    // Refresh PATH
-    process.env.PATH = `/usr/local/bin:/opt/homebrew/bin:${process.env.PATH}`;
+    refreshNodePath();
 
-    if (verifyNode()) {
-      onProgress({ stage: 'done', message: 'Node.js 安装成功!', percent: 100 });
-      return { success: true, version: getNodeVersion() };
+    const verification = verifyNodeInstallation();
+    if (verification.ok) {
+      const suffix = verification.needsShellRefresh ? '，安装器已自动刷新环境' : '';
+      onProgress({ stage: 'done', message: `Node.js 安装成功${suffix}!`, percent: 100 });
+      return {
+        success: true,
+        version: verification.version,
+        warning: verification.needsShellRefresh ? 'Node.js 已安装成功，安装器已自动刷新环境变量。' : undefined,
+      };
     }
 
-    return { success: false, error: 'Node.js 安装后无法运行' };
+    return {
+      success: false,
+      error: verification.error || 'Node.js 安装后无法运行',
+      errorCode: 'NODE_VERIFY_FAILED',
+    };
   } catch (err) {
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
-    return { success: false, error: `安装失败: ${err.message}` };
+    return classifyNodeInstallerError(err, 'pkg');
   }
 }
 
 // ========== Windows Installation ==========
 async function installOnWindows(version, arch, onProgress) {
-  // Method 1: Try winget
-  onProgress({ stage: 'checking', message: '检查 winget...', percent: 10 });
-
-  if (commandExists('winget')) {
-    onProgress({ stage: 'installing', message: '通过 winget 安装 Node.js...', percent: 20 });
-    try {
-      execSync('winget install OpenJS.NodeJS --accept-source-agreements --accept-package-agreements', {
-        encoding: 'utf-8',
-        timeout: 300000,
-      });
-
-      refreshPathWindows();
-
-      if (verifyNode()) {
-        onProgress({ stage: 'done', message: 'Node.js 安装成功!', percent: 100 });
-        return { success: true, version: getNodeVersion() };
-      }
-    } catch {
-      onProgress({ stage: 'fallback', message: 'winget 安装失败，切换到官方安装包...', percent: 30 });
-    }
-  }
-
-  // Method 2: Official .msi installer
+  // Official .msi is the most stable path for non-technical users.
   return await installFromMsi(version, arch, onProgress);
 }
 
@@ -241,20 +212,30 @@ async function installFromMsi(version, arch, onProgress) {
 
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
 
-    refreshPathWindows();
+    refreshNodePath();
 
-    // Wait a moment for PATH to settle
+    // Give Windows Installer a moment to finish registry and PATH writes.
     await new Promise((r) => setTimeout(r, 3000));
 
-    if (verifyNode()) {
-      onProgress({ stage: 'done', message: 'Node.js 安装成功!', percent: 100 });
-      return { success: true, version: getNodeVersion() };
+    const verification = verifyNodeInstallation();
+    if (verification.ok) {
+      const suffix = verification.needsShellRefresh ? '，安装器已自动刷新环境' : '';
+      onProgress({ stage: 'done', message: `Node.js 安装成功${suffix}!`, percent: 100 });
+      return {
+        success: true,
+        version: verification.version,
+        warning: verification.needsShellRefresh ? 'Node.js 已安装成功，安装器已自动刷新环境变量。' : undefined,
+      };
     }
 
-    return { success: false, error: 'Node.js 安装成功但需要重启终端' };
+    return {
+      success: false,
+      error: verification.error || 'Node.js 安装后无法运行',
+      errorCode: 'NODE_VERIFY_FAILED',
+    };
   } catch (err) {
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
-    return { success: false, error: `安装失败: ${err.message}` };
+    return classifyNodeInstallerError(err, 'msi');
   }
 }
 
@@ -339,24 +320,109 @@ function commandExists(cmd) {
   }
 }
 
-function verifyNode() {
+function verifyNodeInstallation() {
+  const candidatePaths = getNodeCandidatePaths();
+  let sawInstalledBinary = false;
+
+  for (const candidate of candidatePaths) {
+    if (!candidate) continue;
+
+    try {
+      const version = execSync(`"${candidate}" -v`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+      execSync(`"${candidate}" -e "console.log(1)"`, { encoding: 'utf-8', stdio: 'pipe' });
+
+      sawInstalledBinary = true;
+      addNodeDirToPath(path.dirname(candidate));
+
+      const currentNode = getNodeCommandPath();
+      const needsShellRefresh = !currentNode || path.resolve(currentNode) !== path.resolve(candidate);
+
+      return { ok: true, version, nodePath: candidate, needsShellRefresh };
+    } catch {
+      if (fs.existsSync(candidate)) {
+        sawInstalledBinary = true;
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    error: sawInstalledBinary ? 'Node.js 已安装，但当前系统环境尚未正确识别。' : '未找到可用的 Node.js 可执行文件。',
+  };
+}
+
+function getNodeCandidatePaths() {
+  const paths = [];
+
+  const currentNode = getNodeCommandPath();
+  if (currentNode) paths.push(currentNode);
+
+  if (process.platform === 'darwin') {
+    paths.push('/usr/local/bin/node', '/opt/homebrew/bin/node');
+  } else if (process.platform === 'win32') {
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    const localAppData = process.env.LOCALAPPDATA || '';
+    const registryInstallPath = getWindowsNodeInstallPathFromRegistry();
+    paths.push(
+      registryInstallPath ? path.join(registryInstallPath, 'node.exe') : '',
+      path.join(programFiles, 'nodejs', 'node.exe'),
+      localAppData ? path.join(localAppData, 'Programs', 'nodejs', 'node.exe') : ''
+    );
+  }
+
+  return [...new Set(paths.filter(Boolean))];
+}
+
+function getWindowsNodeInstallPathFromRegistry() {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+
+  const queries = [
+    'reg query "HKLM\\SOFTWARE\\Node.js" /v InstallPath',
+    'reg query "HKLM\\SOFTWARE\\WOW6432Node\\Node.js" /v InstallPath',
+  ];
+
+  for (const query of queries) {
+    try {
+      const output = execSync(query, { encoding: 'utf-8', stdio: 'pipe' });
+      const match = output.match(/InstallPath\s+REG_\w+\s+([^\r\n]+)/i);
+      if (match?.[1]) {
+        return match[1].trim();
+      }
+    } catch { /* ignore */ }
+  }
+
+  return '';
+}
+
+function getNodeCommandPath() {
   try {
-    execSync('node -e "console.log(1)"', { encoding: 'utf-8', stdio: 'pipe' });
-    return true;
+    if (process.platform === 'win32') {
+      return execSync('where node', { encoding: 'utf-8', stdio: 'pipe' })
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean) || null;
+    }
+
+    return execSync('which node', { encoding: 'utf-8', stdio: 'pipe' }).trim();
   } catch {
-    return false;
+    return null;
   }
 }
 
-function getNodeVersion() {
-  try {
-    return execSync('node -v', { encoding: 'utf-8', stdio: 'pipe' }).trim();
-  } catch {
-    return 'unknown';
+function addNodeDirToPath(dir) {
+  if (!dir) return;
+
+  const delimiter = process.platform === 'win32' ? ';' : ':';
+  const current = (process.env.PATH || '').split(delimiter).filter(Boolean);
+
+  if (!current.includes(dir)) {
+    process.env.PATH = [dir, ...current].join(delimiter);
   }
 }
 
-function refreshPathWindows() {
+function refreshNodePath() {
   if (process.platform === 'win32') {
     try {
       const machinePath = execSync(
@@ -369,7 +435,36 @@ function refreshPathWindows() {
       ).match(/REG_\w+\s+(.*)/)?.[1] || '';
       process.env.PATH = `${machinePath};${userPath}`;
     } catch { /* ignore */ }
+  } else {
+    process.env.PATH = `/usr/local/bin:/opt/homebrew/bin:${process.env.PATH}`;
   }
+}
+
+function classifyNodeInstallerError(err, method) {
+  const raw = String(err?.message || err || '');
+  const lowered = raw.toLowerCase();
+
+  if (lowered.includes('http') || lowered.includes('download') || lowered.includes('timeout') || lowered.includes('下载')) {
+    return {
+      success: false,
+      error: `Node.js 安装包下载失败: ${raw}`,
+      errorCode: 'NODE_DOWNLOAD_FAILED',
+    };
+  }
+
+  if (lowered.includes('administrator privileges') || lowered.includes('installer') || lowered.includes('msiexec') || lowered.includes('权限')) {
+    return {
+      success: false,
+      error: `Node.js 安装程序执行失败: ${raw}`,
+      errorCode: method === 'pkg' ? 'NODE_PKG_INSTALL_FAILED' : 'NODE_MSI_INSTALL_FAILED',
+    };
+  }
+
+  return {
+    success: false,
+    error: `Node.js 安装失败: ${raw}`,
+    errorCode: 'NODE_INSTALL_FAILED',
+  };
 }
 
 module.exports = { install };

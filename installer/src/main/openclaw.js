@@ -14,12 +14,22 @@ const installState = require('./install-state');
 async function install(onProgress) {
   onProgress({ stage: 'start', message: '正在准备安装小龙虾...', percent: 0 });
 
+  refreshKnownToolPaths();
+
   // Uninstall old version if exists
   try {
-    execSync('openclaw --version', { encoding: 'utf-8', stdio: 'pipe' });
+    const existingOpenClaw = resolveOpenClawCommand();
+    if (existingOpenClaw) {
+      execSync(`"${existingOpenClaw.command}" --version`, { encoding: 'utf-8', stdio: 'pipe' });
+    } else {
+      throw new Error('not installed');
+    }
     onProgress({ stage: 'uninstall', message: '卸载旧版本...', percent: 5 });
     try {
-      execSync('npm uninstall -g openclaw', { encoding: 'utf-8', stdio: 'pipe', timeout: 60000 });
+      const resolvedNpm = resolveNpmCommand();
+      if (resolvedNpm) {
+        execSync(`"${resolvedNpm.command}" uninstall -g openclaw`, { encoding: 'utf-8', stdio: 'pipe', timeout: 60000 });
+      }
     } catch { /* ignore */ }
   } catch { /* not installed */ }
 
@@ -51,7 +61,11 @@ function runNpmInstall(onProgress, isSudo) {
   return new Promise((resolve) => {
     const resolvedSpawn = resolveNpmInstallSpawn();
     if (!resolvedSpawn) {
-      resolve({ success: false, error: '未找到 npm 命令。请先确认 Node.js 已正确安装。' });
+      resolve({
+        success: false,
+        error: '未找到 npm 命令。请先确认 Node.js 已正确安装。',
+        errorCode: 'OPENCLAW_NPM_NOT_FOUND',
+      });
       return;
     }
 
@@ -95,16 +109,13 @@ function runNpmInstall(onProgress, isSudo) {
       if (code === 0) {
         // Verify installation
         try {
-          const version = execSync('openclaw --version', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+          const version = getInstalledOpenClawVersion();
           onProgress({ stage: 'done', message: `安装成功! 版本: ${version}`, percent: 100 });
           resolve({ success: true, version });
         } catch {
-          // Try refresh PATH on Windows
-          if (process.platform === 'win32') {
-            refreshPathWindows();
-          }
+          refreshKnownToolPaths();
           try {
-            const version = execSync('openclaw --version', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+            const version = getInstalledOpenClawVersion();
             onProgress({ stage: 'done', message: `安装成功! 版本: ${version}`, percent: 100 });
             resolve({ success: true, version });
           } catch {
@@ -112,18 +123,18 @@ function runNpmInstall(onProgress, isSudo) {
           }
         }
       } else {
-        resolve({ success: false, error: errOutput || `npm install 退出码: ${code}` });
+        resolve(classifyOpenClawInstallFailure(errOutput || output || `npm install 退出码: ${code}`));
       }
     });
 
     child.on('error', (err) => {
-      resolve({ success: false, error: err.message });
+      resolve(classifyOpenClawInstallFailure(err.message));
     });
 
     // Timeout after 10 minutes
     setTimeout(() => {
       child.kill();
-      resolve({ success: false, error: '安装超时 (10分钟)' });
+      resolve({ success: false, error: '安装超时 (10分钟)', errorCode: 'OPENCLAW_INSTALL_TIMEOUT' });
     }, 600000);
   });
 }
@@ -131,7 +142,16 @@ function runNpmInstall(onProgress, isSudo) {
 function runNpmInstallSudo(onProgress) {
   return new Promise((resolve) => {
     try {
-      const npmPath = execSync('which npm', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+      const resolvedNpm = resolveNpmCommand();
+      if (!resolvedNpm) {
+        resolve({
+          success: false,
+          error: '未找到 npm 命令。请先确认 Node.js 已正确安装。',
+          errorCode: 'OPENCLAW_NPM_NOT_FOUND',
+        });
+        return;
+      }
+      const npmPath = resolvedNpm.command;
       const cmd = `${npmPath} install -g openclaw@latest`;
 
       execSync(
@@ -140,14 +160,15 @@ function runNpmInstallSudo(onProgress) {
       );
 
       try {
-        const version = execSync('openclaw --version', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+        refreshKnownToolPaths();
+        const version = getInstalledOpenClawVersion();
         onProgress({ stage: 'done', message: `安装成功! 版本: ${version}`, percent: 100 });
         resolve({ success: true, version });
       } catch {
         resolve({ success: true, version: '已安装' });
       }
     } catch (err) {
-      resolve({ success: false, error: err.message });
+      resolve(classifyOpenClawInstallFailure(err.message));
     }
   });
 }
@@ -205,23 +226,35 @@ async function runOnboarding() {
       if (!resolved) {
         return { success: false, error: '未找到 openclaw 命令。请确认安装已完成后重试。' };
       }
+      refreshKnownToolPaths();
+      const command = `${shellQuote(resolved.command)} onboard --install-daemon`;
+      const script = [
+        'tell application "Terminal"',
+        'activate',
+        `do script ${toAppleScriptString(command)}`,
+        'end tell',
+      ].join('\n');
 
-      execSync(
-        `osascript -e 'tell application "Terminal" to do script "openclaw onboard --install-daemon"'`,
-        { encoding: 'utf-8' }
-      );
+      execSync(`osascript <<'APPLESCRIPT'\n${script}\nAPPLESCRIPT`, { encoding: 'utf-8' });
     } else if (process.platform === 'win32') {
       const resolved = resolveOpenClawCommand();
       if (!resolved) {
         return { success: false, error: '未找到 openclaw 命令。请确认安装已完成后重试。' };
       }
+      refreshKnownToolPaths();
+      const powershell = resolveWindowsPowerShell();
+      const command = `& ${toPowerShellLiteral(resolved.command)} onboard --install-daemon`;
 
-      await spawnDetached(resolved.command, ['onboard', '--install-daemon'], {
-        ...resolved.options,
-        windowsHide: true,
+      if (!powershell) {
+        return { success: false, error: '未找到 PowerShell，无法打开交互式配置窗口。' };
+      }
+
+      await spawnDetached(powershell, ['-NoExit', '-Command', command], {
+        shell: false,
+        windowsHide: false,
       });
     }
-    return { success: true };
+    return { success: true, warning: '配置向导已在新终端窗口中启动。' };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -240,6 +273,19 @@ function refreshPathWindows() {
       ).match(/REG_\w+\s+(.*)/)?.[1] || '';
       process.env.PATH = `${machinePath};${userPath}`;
     } catch { /* ignore */ }
+  }
+}
+
+function refreshKnownToolPaths() {
+  if (process.platform === 'win32') {
+    refreshPathWindows();
+    const registryInstallPath = getWindowsNodeInstallPathFromRegistry();
+    prependPathEntries([
+      registryInstallPath || '',
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'npm') : '',
+    ]);
+  } else {
+    prependPathEntries(['/usr/local/bin', '/opt/homebrew/bin']);
   }
 }
 
@@ -271,11 +317,24 @@ function buildSpawnEnv(extraEnv = {}) {
   return normalized;
 }
 
+function prependPathEntries(entries) {
+  const delimiter = process.platform === 'win32' ? ';' : ':';
+  const currentEntries = (process.env.PATH || '').split(delimiter).filter(Boolean);
+  const deduped = [...new Set([...entries.filter(Boolean), ...currentEntries])];
+  process.env.PATH = deduped.join(delimiter);
+}
+
 function resolveNpmCommand() {
   if (process.platform === 'win32') {
-    refreshPathWindows();
+    refreshKnownToolPaths();
 
     const candidates = [];
+
+    const registryInstallPath = getWindowsNodeInstallPathFromRegistry();
+    if (registryInstallPath) {
+      candidates.push(path.join(registryInstallPath, 'npm.cmd'));
+      candidates.push(path.join(registryInstallPath, 'npm'));
+    }
 
     try {
       const whereResult = execSync('where npm', {
@@ -307,6 +366,15 @@ function resolveNpmCommand() {
     }
 
     return { command: 'npm.cmd', options: { shell: false } };
+  }
+
+  prependPathEntries(['/usr/local/bin', '/opt/homebrew/bin']);
+
+  const candidates = ['/usr/local/bin/npm', '/opt/homebrew/bin/npm'];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return { command: candidate, options: { shell: false } };
+    }
   }
 
   return { command: 'npm', options: { shell: false } };
@@ -357,11 +425,40 @@ function resolveWindowsCmdCommand() {
   return found || null;
 }
 
+function resolveWindowsPowerShell() {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  const candidates = [];
+
+  if (process.env.SystemRoot || process.env.WINDIR) {
+    const systemRoot = process.env.SystemRoot || process.env.WINDIR;
+    candidates.push(path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'));
+  }
+
+  try {
+    const whereResult = execSync('where powershell', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim();
+    candidates.push(...whereResult.split(/\r?\n/).filter(Boolean));
+  } catch { /* ignore */ }
+
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
+}
+
 function resolveOpenClawCommand() {
   if (process.platform === 'win32') {
-    refreshPathWindows();
+    refreshKnownToolPaths();
 
     const candidates = [];
+
+    const npmDir = getNpmBinDir();
+    if (npmDir) {
+      candidates.push(path.join(npmDir, 'openclaw.cmd'));
+      candidates.push(path.join(npmDir, 'openclaw'));
+    }
 
     try {
       const whereResult = execSync('where openclaw', {
@@ -394,6 +491,15 @@ function resolveOpenClawCommand() {
     }
 
     return null;
+  }
+
+  prependPathEntries(['/usr/local/bin', '/opt/homebrew/bin']);
+
+  const unixCandidates = ['/usr/local/bin/openclaw', '/opt/homebrew/bin/openclaw'];
+  for (const candidate of unixCandidates) {
+    if (fs.existsSync(candidate)) {
+      return { command: candidate, options: { shell: false } };
+    }
   }
 
   try {
@@ -433,6 +539,111 @@ function spawnDetached(command, args, options = {}) {
       reject(err);
     });
   });
+}
+
+function getInstalledOpenClawVersion() {
+  const resolved = resolveOpenClawCommand();
+  if (!resolved) {
+    throw new Error('未找到 openclaw 命令');
+  }
+
+  return execSync(`"${resolved.command}" --version`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+}
+
+function getNpmBinDir() {
+  try {
+    if (process.platform === 'win32') {
+      const candidates = [];
+      const registryInstallPath = getWindowsNodeInstallPathFromRegistry();
+      if (registryInstallPath) candidates.push(registryInstallPath);
+      if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, 'npm'));
+
+      return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || '';
+    }
+
+    const candidates = ['/usr/local/bin', '/opt/homebrew/bin'];
+    return candidates.find((candidate) => candidate && fs.existsSync(path.join(candidate, 'npm'))) || '';
+  } catch {
+    return '';
+  }
+}
+
+function getWindowsNodeInstallPathFromRegistry() {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+
+  const queries = [
+    'reg query "HKLM\\SOFTWARE\\Node.js" /v InstallPath',
+    'reg query "HKLM\\SOFTWARE\\WOW6432Node\\Node.js" /v InstallPath',
+  ];
+
+  for (const query of queries) {
+    try {
+      const output = execSync(query, { encoding: 'utf-8', stdio: 'pipe' });
+      const match = output.match(/InstallPath\s+REG_\w+\s+([^\r\n]+)/i);
+      if (match?.[1]) {
+        return match[1].trim();
+      }
+    } catch { /* ignore */ }
+  }
+
+  return '';
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function toAppleScriptString(value) {
+  return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function toPowerShellLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function classifyOpenClawInstallFailure(rawMessage) {
+  const raw = String(rawMessage || '');
+  const lowered = raw.toLowerCase();
+
+  if (lowered.includes('eacces') || lowered.includes('permission denied')) {
+    return {
+      success: false,
+      error: raw || 'OpenClaw 安装失败：权限不足。',
+      errorCode: 'OPENCLAW_PERMISSION_DENIED',
+    };
+  }
+
+  if (lowered.includes('registry') || lowered.includes('network') || lowered.includes('fetch') || lowered.includes('econn') || lowered.includes('socket timeout')) {
+    return {
+      success: false,
+      error: raw || 'OpenClaw 安装失败：网络或 npm 源连接异常。',
+      errorCode: 'OPENCLAW_NETWORK_FAILED',
+    };
+  }
+
+  if (lowered.includes('sharp') || lowered.includes('libvips') || lowered.includes('build') || lowered.includes('gyp')) {
+    return {
+      success: false,
+      error: raw || 'OpenClaw 安装失败：依赖编译阶段出错。',
+      errorCode: 'OPENCLAW_DEPENDENCY_BUILD_FAILED',
+    };
+  }
+
+  if (lowered.includes('not found') || lowered.includes('未找到 npm')) {
+    return {
+      success: false,
+      error: raw || 'OpenClaw 安装失败：未找到 npm。',
+      errorCode: 'OPENCLAW_NPM_NOT_FOUND',
+    };
+  }
+
+  return {
+    success: false,
+    error: raw || 'OpenClaw 安装失败。',
+    errorCode: 'OPENCLAW_INSTALL_FAILED',
+  };
 }
 
 module.exports = { install, launchDashboard, launchGateway, runOnboarding };

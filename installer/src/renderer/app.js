@@ -13,6 +13,8 @@
     needGitMirror: false,
     needOpenClaw: false,
     installing: false,
+    logLines: [],
+    lastError: null,
   };
 
   // ===== DOM references =====
@@ -129,6 +131,9 @@
       showError(`配置向导启动失败：${(result && result.error) || '未知错误'}`);
       return;
     }
+    if (result.warning) {
+      addLog(result.warning);
+    }
     showPage('complete');
   });
 
@@ -153,6 +158,9 @@
   $('#btn-retry').addEventListener('click', () => {
     resetInstallPageState();
     showPage('welcome');
+  });
+  $('#btn-copy-diagnostics').addEventListener('click', async () => {
+    await copyDiagnostics();
   });
 
   // --- External links ---
@@ -387,13 +395,16 @@
 
         if (!nodeResult.success) {
           if (nodeResult.incompatible) {
-            showError(nodeResult.error);
+            showInstallError('Node.js 安装失败', nodeResult);
             return;
           }
-          showError(`Node.js 安装失败: ${nodeResult.error}`);
+          showInstallError('Node.js 安装失败', nodeResult);
           return;
         }
         addLog(`Node.js 安装成功: ${nodeResult.version}`);
+        if (nodeResult.warning) {
+          addLog(nodeResult.warning);
+        }
       }
 
       // Step 4: Install OpenClaw
@@ -402,7 +413,7 @@
         const ocResult = await window.installer.installOpenClaw();
 
         if (!ocResult.success) {
-          showError(`小龙虾安装失败: ${ocResult.error}`);
+          showInstallError('小龙虾安装失败', ocResult);
           return;
         }
         addLog(`小龙虾安装成功: ${ocResult.version}`);
@@ -422,6 +433,8 @@
 
   function resetInstallPageState() {
     state.installing = false;
+    state.logLines = [];
+    state.lastError = null;
 
     const installBtn = $('#btn-install-start');
     installBtn.disabled = false;
@@ -547,17 +560,99 @@
   }
 
   function addLog(text) {
+    if (!text) return;
     const logContent = $('#log-content');
     const line = document.createElement('div');
     line.className = 'log-line';
     line.textContent = text;
     logContent.appendChild(line);
     logContent.scrollTop = logContent.scrollHeight;
+
+    state.logLines.push(String(text));
+    if (state.logLines.length > 200) {
+      state.logLines = state.logLines.slice(-200);
+    }
+  }
+
+  function showInstallError(title, result) {
+    const detail = formatInstallError(title, result);
+    state.lastError = {
+      title,
+      error: result?.error || '未知错误',
+      errorCode: result?.errorCode || '',
+      detail,
+    };
+    addLog(detail);
+    showError(detail);
+  }
+
+  function formatInstallError(title, result) {
+    if (!result) return `${title}：未知错误`;
+
+    const code = result.errorCode ? `\n错误代码：${result.errorCode}` : '';
+    const message = result.error || '未知错误';
+    return `${title}：${message}${code}`;
   }
 
   function showError(message) {
+    if (!state.lastError) {
+      state.lastError = {
+        title: '安装失败',
+        error: message,
+        errorCode: '',
+        detail: message,
+      };
+    }
     $('#error-detail').textContent = message;
     showPage('error');
+  }
+
+  async function copyDiagnostics() {
+    const payload = buildDiagnosticsText();
+    const result = await window.installer.copyText(payload);
+    const hint = $('#error-copy-hint');
+
+    if (result && result.success) {
+      hint.textContent = '诊断信息已复制，可以直接粘贴发给开发者。';
+    } else {
+      hint.textContent = '复制失败，请手动截图并发送错误信息。';
+    }
+  }
+
+  function buildDiagnosticsText() {
+    const envSummary = formatEnvironmentSummary();
+    const logSummary = state.logLines.slice(-20).join('\n') || '（暂无日志）';
+    const errorCode = state.lastError?.errorCode || '无';
+    const errorDetail = state.lastError?.error || state.lastError?.detail || '未知错误';
+
+    return [
+      '【OpenClaw 安装器诊断信息】',
+      `时间：${new Date().toLocaleString()}`,
+      `平台：${window.installer.platform}`,
+      `当前页面：${state.currentPage}`,
+      `错误代码：${errorCode}`,
+      `错误详情：${errorDetail}`,
+      '',
+      '【环境检测】',
+      envSummary,
+      '',
+      '【最近日志（最后20条）】',
+      logSummary,
+    ].join('\n');
+  }
+
+  function formatEnvironmentSummary() {
+    if (!state.envResults || !Array.isArray(state.envResults.checks)) {
+      return '（尚未完成环境检测）';
+    }
+
+    return state.envResults.checks
+      .map((check) => {
+        const detail = check.detail ? ` | ${check.detail}` : '';
+        const message = check.message ? ` | ${check.message}` : '';
+        return `- ${check.name}: ${check.status}${detail}${message}`;
+      })
+      .join('\n');
   }
 
   // ===== Start =====
