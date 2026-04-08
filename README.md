@@ -68,6 +68,30 @@ curl -fsSL https://gitee.com/cyberpinkman/openclaw-easy-deploy/raw/main/mac/inst
 curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash
 ```
 
+如果运行上面的 `curl` 命令时看到：
+
+```bash
+curl: (60) SSL certificate problem: certificate is not yet valid
+```
+
+优先检查 Mac 的系统时间是否正确。这个报错通常不是安装脚本本身有问题，而是本机时间明显早于网站证书的生效时间。
+
+先在终端执行：
+
+```bash
+date
+```
+
+如果日期或年份不对，请到：
+
+- 系统设置
+- 通用
+- 日期与时间
+
+打开“自动设置日期与时间”，校准后再重新运行安装命令。
+
+如果系统时间正确，但 Gitee 仍然报同样错误，请改用 GitHub 那条命令重试。
+
 ---
 
 ## 🗑️ 卸载小龙虾

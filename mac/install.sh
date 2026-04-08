@@ -750,6 +750,10 @@ show_failed() {
     echo ""
     echo "  curl -fsSL https://raw.githubusercontent.com/cyberpinkman/openclaw-easy-deploy/main/mac/install.sh | bash"
     echo ""
+    echo -e "${YELLOW}如果看到 curl: (60) SSL certificate problem: certificate is not yet valid${NC}"
+    echo "  请先检查 Mac 系统时间是否正确："
+    echo "  date"
+    echo ""
 }
 
 # 主函数
